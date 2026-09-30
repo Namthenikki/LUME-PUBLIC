@@ -81,7 +81,29 @@ async function run(reason) {
     if (tab?.id) read = await readAll(ids, { cache, names, get: inTab(tab.id) }).catch(() => read);
   }
   await store.set({ cache });
-  if (!read.error) await store.set({ courses: config.courses.map((c) => ({ ...c, name: read.courses.find((r) => r.id === c.id && r.ok)?.name ?? c.name })) });
+
+  // One student per extension. On a shared Chrome, a roommate signed in to NPTEL must not have their
+  // deadlines posted into this Lume: the first account synced is the owner, and any other stops the sync.
+  const { email, ...found } = read;
+  read = found;
+  if (email && !read.error) {
+    const { owner } = await store.get('owner');
+    if (!owner) await store.set({ owner: email });
+    else if (owner !== email) {
+      read = { error: 'NPTEL in this Chrome is signed in as a different student. Log in to NPTEL with your own account to keep syncing', courses: [], items: [] };
+      await store.set({ ownerMismatch: { owner, now: email } });
+    }
+  }
+  if (!read.error) await store.remove('ownerMismatch');
+
+  // Courses the signed-in student isn't in (added from someone else's course page) are dropped.
+  const dropped = new Set(read.courses.filter((c) => c.notEnrolled).map((c) => c.id));
+  read = { ...read, courses: read.courses.filter((c) => !dropped.has(c.id)) };
+  if (!read.error) {
+    await store.set({
+      courses: config.courses.filter((c) => !dropped.has(c.id)).map((c) => ({ ...c, name: read.courses.find((r) => r.id === c.id && r.ok)?.name ?? c.name })),
+    });
+  }
 
   // Tell Lume, which reminds you on your phone. Errors go too, so your phone hears about them.
   let posted;

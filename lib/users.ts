@@ -17,14 +17,16 @@ export type UserDoc = {
   lastSeenAt: Timestamp;
   /** When the next reminder is due for any of their tasks (epoch ms), so the reminder job only reads who needs it. */
   nextAt: number | null;
+  /** Sign-in generation (lib/auth.ts sessionToken). Missing means 0. */
+  sessionGen?: number;
 };
 
 export const usersCollection = () => db().collection('users');
 export const userRef = (uid: string) => usersCollection().doc(uid);
 const links = () => db().collection('links');
 
-/** Opens the Lume for this link, creating it the first time. */
-export async function connectLink(link: LmsLink): Promise<{ uid: string; created: boolean }> {
+/** Opens the Lume for this link, creating it the first time. `gen` is the sign-in generation for the new cookie. */
+export async function connectLink(link: LmsLink): Promise<{ uid: string; created: boolean; gen: number }> {
   const linkRef = links().doc(linkId(link.token));
   return db().runTransaction(async (tx) => {
     const found = await tx.get(linkRef);
@@ -34,17 +36,20 @@ export async function connectLink(link: LmsLink): Promise<{ uid: string; created
       const user = await tx.get(userRef(uid));
       if (user.exists) {
         tx.update(userRef(uid), { lastSeenAt: now });
-        return { uid, created: false };
+        return { uid, created: false, gen: (user.get('sessionGen') as number | undefined) ?? 0 };
       }
     }
     const uid = randomBytes(16).toString('base64url');
     tx.set(linkRef, { uid, createdAt: now });
     tx.set(userRef(uid), { feed: seal(link.url), linkId: linkRef.id, createdAt: now, lastSeenAt: now, nextAt: null } satisfies UserDoc);
-    return { uid, created: true };
+    return { uid, created: true, gen: 0 };
   });
 }
 
-/** Swaps in a new LMS link (after resetting it on the LMS), keeping everything else. */
+/**
+ * Swaps in a new LMS link, keeping everything else. The old link stops opening this Lume, and the
+ * sign-in generation goes up, so browsers that got in with the old link are signed out too.
+ */
 export async function changeLink(uid: string, link: LmsLink): Promise<'ok' | 'same' | 'taken'> {
   const newRef = links().doc(linkId(link.token));
   return db().runTransaction(async (tx) => {
@@ -53,8 +58,19 @@ export async function changeLink(uid: string, link: LmsLink): Promise<'ok' | 'sa
     if (taken.exists) return taken.get('uid') === uid ? 'same' : 'taken';
     tx.delete(links().doc(user.get('linkId') as string));
     tx.set(newRef, { uid, createdAt: Timestamp.now() });
-    tx.update(userRef(uid), { feed: seal(link.url), linkId: newRef.id });
+    tx.update(userRef(uid), { feed: seal(link.url), linkId: newRef.id, sessionGen: ((user.get('sessionGen') as number | undefined) ?? 0) + 1 });
     return 'ok';
+  });
+}
+
+/** Signs out every other browser: returns the new sign-in generation, for this browser's fresh cookie. */
+export async function bumpSessionGen(uid: string): Promise<number> {
+  return db().runTransaction(async (tx) => {
+    const user = await tx.get(userRef(uid));
+    if (!user.exists) throw new Error('No such user');
+    const gen = ((user.get('sessionGen') as number | undefined) ?? 0) + 1;
+    tx.update(userRef(uid), { sessionGen: gen });
+    return gen;
   });
 }
 

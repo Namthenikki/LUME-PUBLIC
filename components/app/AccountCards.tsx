@@ -1,18 +1,26 @@
 'use client';
 
 import { AnimatePresence, motion } from 'motion/react';
-import { useActionState, useState, useTransition } from 'react';
-import { changeLinkAction, deleteDataAction, releasePhoneAction, signOutAction } from '@/app/dashboard/actions';
+import { useActionState, useEffect, useState, useTransition } from 'react';
+import { changeLinkAction, deleteDataAction, releasePhoneAction, signOutAction, signOutOtherDevicesAction } from '@/app/dashboard/actions';
 import { LmsLinkGuide } from '../guides/LmsLinkGuide';
 import { Tile } from '../landing/widgets';
 import { storedPhone } from './install';
-import { disablePush } from './push-client';
+import { disablePush, storedToken } from './push-client';
+
+/** This device's phone and push tokens, so signing out the others keeps this one working. */
+function thisDevice() {
+  return { phone: storedPhone(), push: storedToken() };
+}
 import { Panel } from './ui';
 
 /** The LMS row in Settings → Sources: status, and a way to paste a new link if the old one stops working. */
 export function LmsSource({ ok, detail }: { ok: boolean | null; detail: string }) {
   const [open, setOpen] = useState(ok === false);
   const [state, action, pending] = useActionState(changeLinkAction, null);
+  // A new link signs out the other devices; these say which one is this.
+  const [device, setDevice] = useState<{ phone: string | null; push: string | null }>({ phone: null, push: null });
+  useEffect(() => setDevice(thisDevice()), [open]);
 
   return (
     <li className="py-2">
@@ -51,6 +59,8 @@ export function LmsSource({ ok, detail }: { ok: boolean | null; detail: string }
                   : 'Only needed if you reset your calendar link in the LMS. Your deadlines and settings stay.'}
               </p>
               <form action={action} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input type="hidden" name="phone" value={device.phone ?? ''} />
+                <input type="hidden" name="push" value={device.push ?? ''} />
                 <input
                   name="link"
                   type="url"
@@ -84,6 +94,14 @@ export function LmsSource({ ok, detail }: { ok: boolean | null; detail: string }
 export function YourDataCard() {
   const [confirming, setConfirming] = useState(false);
   const [pending, start] = useTransition();
+  const [others, setOthers] = useState<string | null>(null);
+
+  const signOutOthers = () =>
+    start(async () => {
+      const { browsers, phones } = await signOutOtherDevicesAction(thisDevice());
+      const n = browsers + phones;
+      setOthers(n === 0 ? 'Done. No other device had notifications or alarms on, but any that was signed in is signed out now.' : `Done. Signed out everywhere else, and ${n} other ${n === 1 ? 'device' : 'devices'} stopped getting your reminders.`);
+    });
 
   const signOut = () =>
     start(async () => {
@@ -108,6 +126,19 @@ export function YourDataCard() {
       <p className="text-[13px] text-ink-2">
         Lume keeps your deadlines, your LMS link (encrypted) and the devices you turned reminders on for. Nobody else can see them.
       </p>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        <p className="min-w-0 flex-1 basis-48 text-[13px] text-ink-2">
+          Pasted your link on a friend’s phone, or lost a device? Sign out everywhere except here. Anyone who still has your link can get back in, so keep it to yourself.
+        </p>
+        <button type="button" onClick={signOutOthers} disabled={pending} className="h-10 rounded-[12px] border border-line px-4 text-[13px] font-medium disabled:opacity-60">
+          Sign out other devices
+        </button>
+        {others && (
+          <p className="w-full text-[13px] text-green" role="status">
+            {others}
+          </p>
+        )}
+      </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
         <p className="min-w-0 flex-1 basis-48 text-[13px] text-ink-2">Sign this device out. Paste your LMS link to come back.</p>
         <button type="button" onClick={signOut} disabled={pending} className="h-10 rounded-[12px] border border-line px-4 text-[13px] font-medium disabled:opacity-60">

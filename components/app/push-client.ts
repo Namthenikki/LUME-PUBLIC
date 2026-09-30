@@ -17,7 +17,8 @@ const TOKEN_KEY = 'lume:push-token';
 
 export type PushState = 'loading' | 'unconfigured' | 'unsupported' | 'blocked' | 'off' | 'on';
 
-function storedToken(): string | null {
+/** This browser's push token, if notifications are on here. */
+export function storedToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
   } catch {

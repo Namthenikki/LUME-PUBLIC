@@ -3,7 +3,6 @@ import { IphoneTip } from '@/components/guides/IphoneTip';
 import { LmsLinkGuide } from '@/components/guides/LmsLinkGuide';
 import { AlarmTile, AppTile, CheckTile } from '@/components/landing/widgets';
 import { currentUserId } from '@/lib/session';
-import { getUser } from '@/lib/users';
 import { StartForm } from './StartForm';
 
 export const metadata = { title: 'Connect your LMS · Lume' };
@@ -12,7 +11,7 @@ export default async function StartPage({ searchParams }: PageProps<'/start'>) {
   const { next } = await searchParams;
   const target = typeof next === 'string' && next.startsWith('/dashboard') ? next : '/dashboard';
   const uid = await currentUserId();
-  if (uid && (await getUser(uid))) redirect(target);
+  if (uid) redirect(target);
 
   return (
     <div className="flex min-h-dvh flex-col p-3 sm:p-4">

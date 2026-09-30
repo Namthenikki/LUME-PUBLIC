@@ -6,6 +6,9 @@ const API = `${ORIGIN}/e-learning/api`;
 const PROGRAMMING = 'com.google.coursebuilder.programming_assignment';
 const DAY = 86_400_000;
 
+/** The signed-in NPTEL account isn't enrolled in this course (another student's course, added on a shared Chrome). */
+export class NotEnrolled extends Error {}
+
 export class SignedOut extends Error {
   constructor() {
     super('Signed out of NPTEL. Open onlinecourses.nptel.ac.in in Chrome on your laptop and log in');
@@ -75,7 +78,7 @@ async function readOutline(courseId, get) {
     throw new Error('NPTEL sent an outline Lume can’t read');
   }
   if (data?.custom_department_update_required) throw new Error('NPTEL wants you to finish your profile first');
-  if (data?.is_enrolled === false) throw new Error('You aren’t enrolled in this course');
+  if (data?.is_enrolled === false) throw new NotEnrolled('You aren’t enrolled in this course');
   const list = Array.isArray(data?.assessments) ? data.assessments : Object.values(data?.assessments ?? {});
   return { name: String(data?.course_name ?? '').trim() || courseId, assessments: list.filter((a) => a && a.id != null && a.unit_id != null) };
 }
@@ -96,9 +99,8 @@ async function readAssessment(courseId, a, get) {
 
   if (programming) {
     const assignment = j.data?.assignment ?? j.assignment ?? {};
-    // A test run and a real submission look alike here, so programming work is never marked done
-    // automatically; you tick it in Lume.
-    return { due: parseDue(assignment.submission_due_date ?? j.due_date), practice: !!(j.is_practice ?? assignment.is_practice), submitted: false };
+    // Done when NPTEL shows its green tick next to it (state 2 in the outline), the same as quizzes.
+    return { due: parseDue(assignment.submission_due_date ?? j.due_date), practice: !!(j.is_practice ?? assignment.is_practice), submitted: a.state === 2 };
   }
   return {
     due: parseDue(j.due_date),
@@ -135,7 +137,8 @@ export async function readCourse(courseId, { get = fetchJson, cache = {}, now = 
     const cacheKey = `${courseId}/${key}`;
     const known = cache[cacheKey];
     const settled = known && (known.practice || (known.due && known.due < now - 3 * DAY));
-    const info = settled ? { due: known.due ? new Date(known.due) : null, practice: known.practice, submitted: known.submitted } : await readAssessment(courseId, a, get);
+    // The outline is read fresh every run, so a green tick counts even for an assignment read from the cache.
+    const info = settled ? { due: known.due ? new Date(known.due) : null, practice: known.practice, submitted: known.submitted || a.state === 2 } : await readAssessment(courseId, a, get);
     if (info.hidden) return; // not released yet
     cache[cacheKey] = { due: info.due?.getTime() ?? null, practice: info.practice, submitted: info.submitted };
     if (!info.due || info.practice) return;
@@ -157,8 +160,24 @@ export async function readCourse(courseId, { get = fetchJson, cache = {}, now = 
 }
 
 /**
+ * Which NPTEL account is signed in: the email on a course's progress page. Null if NPTEL doesn't say,
+ * in which case nothing is checked.
+ */
+async function signedInEmail(courseId, get) {
+  try {
+    const r = await get(`${API}/progress?course_id=${encodeURIComponent(courseId)}`);
+    const data = typeof r.json?.payload === 'string' ? JSON.parse(r.json.payload) : r.json?.payload;
+    const email = typeof data?.student_email === 'string' ? data.student_email.trim().toLowerCase() : '';
+    return /^[^@\s]+@[^@\s]+$/.test(email) ? email : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Reads every course. A course that fails is reported and the rest still sync; being signed out
- * stops the whole run, since every course would fail the same way.
+ * stops the whole run, since every course would fail the same way. `email` is who NPTEL says is
+ * signed in; it stays in the extension and is never sent to Lume.
  */
 export async function readAll(courseIds, options = {}) {
   const courses = [];
@@ -170,9 +189,15 @@ export async function readAll(courseIds, options = {}) {
       items.push(...course.items);
     } catch (err) {
       if (err instanceof SignedOut) return { error: err.message, courses: [], items: [] };
+      if (err instanceof NotEnrolled) {
+        courses.push({ id, name: options.names?.[id] ?? id, ok: false, notEnrolled: true, error: err.message });
+        continue;
+      }
       const error = err?.name === 'TimeoutError' ? 'NPTEL took too long to answer' : err instanceof TypeError && /fetch/i.test(err.message) ? 'Couldn’t reach NPTEL' : String(err?.message ?? err);
       courses.push({ id, name: options.names?.[id] ?? id, ok: false, error });
     }
   }
-  return { courses, items };
+  const first = courses.find((c) => c.ok);
+  const email = first ? await signedInEmail(first.id, options.get ?? fetchJson) : null;
+  return { courses, items, email };
 }

@@ -3,18 +3,31 @@
 import { cookies } from 'next/headers';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { isDeviceToken, pairAlarmDevice, releaseAlarmDevice, unpairAllAlarmDevices } from '@/lib/alarm-devices';
+import { isDeviceToken, pairAlarmDevice, releaseAlarmDevice, unpairAllAlarmDevices, unpairOtherPhones } from '@/lib/alarm-devices';
 import { USER_COOKIE } from '@/lib/auth';
 import { syncUserIfStale } from '@/lib/catch-up';
 import { parseLmsLink } from '@/lib/lms-link';
-import { pushToUser, removeDevice, saveDevice } from '@/lib/push';
+import { pushToUser, removeDevice, removeOtherDevices, saveDevice } from '@/lib/push';
 import { isQuiet } from '@/lib/quiet';
-import { requireUser } from '@/lib/session';
+import { requireUser, setSessionCookie } from '@/lib/session';
 import { ManipalIcsAdapter } from '@/lib/sources/manipal-ics';
 import { runSync } from '@/lib/sync';
 import { markDone, markPending, snooze } from '@/lib/tasks';
 import { parseTheme, THEME_COOKIE } from '@/lib/theme';
-import { changeLink, deleteUser } from '@/lib/users';
+import { bumpSessionGen, changeLink, deleteUser, getUser } from '@/lib/users';
+
+/** This device's own phone token and browser push token, which a sign-out of the other devices keeps. */
+type ThisDevice = { phone?: string | null; push?: string | null };
+
+/** Everything but this device stops opening, ringing or notifying for the student. */
+async function dropOtherDevices(uid: string, gen: number, device: ThisDevice) {
+  const [browsers, phones] = await Promise.all([
+    removeOtherDevices(uid, typeof device.push === 'string' ? device.push : null),
+    unpairOtherPhones(uid, isDeviceToken(device.phone) ? device.phone : null),
+  ]);
+  await setSessionCookie(uid, gen);
+  return { browsers, phones };
+}
 
 export async function markDoneAction(id: string) {
   const uid = await requireUser();
@@ -58,9 +71,16 @@ export async function changeLinkAction(_prev: { ok?: string; error?: string } | 
   }
   const outcome = await changeLink(uid, link);
   if (outcome === 'taken') return { error: 'That link already opens another Lume (maybe you connected it on another phone). Use that one instead.' };
+  // The old link is dead, and so is every device that got in with it; this one stays signed in.
+  if (outcome === 'ok') {
+    const user = await getUser(uid);
+    await dropOtherDevices(uid, user?.sessionGen ?? 0, { phone: String(form.get('phone') ?? ''), push: String(form.get('push') ?? '') });
+  }
   await runSync(uid, [{ source: 'manipal', authoritative: true, fetchTasks: async () => tasks }]);
   refresh();
-  return { ok: outcome === 'same' ? 'That’s the link you already use. Lume is up to date.' : 'Link updated. Lume is reading your LMS again.' };
+  return {
+    ok: outcome === 'same' ? 'That’s the link you already use. Lume is up to date.' : 'Link updated. Other devices were signed out: paste the new link there to use Lume on them.',
+  };
 }
 
 /**
@@ -107,6 +127,17 @@ export async function setThemeAction(theme: string) {
   await requireUser();
   (await cookies()).set(THEME_COOKIE, parseTheme(theme), { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
   refresh();
+}
+
+/**
+ * Signs out every other browser and phone (a friend's phone the link was pasted on, an old laptop):
+ * their cookies stop working, and they get no more of the student's notifications or alarms.
+ */
+export async function signOutOtherDevicesAction(device: ThisDevice): Promise<{ browsers: number; phones: number }> {
+  const uid = await requireUser();
+  const result = await dropOtherDevices(uid, await bumpSessionGen(uid), device);
+  refresh();
+  return result;
 }
 
 /** Forgets this browser. The student's Lume stays; pasting the LMS link again opens it. */

@@ -35,6 +35,14 @@ export async function removeDevice(uid: string, token: string): Promise<void> {
   if (doc.exists && doc.get('uid') === uid) await ref.delete();
 }
 
+/** Forgets every browser of the student's except `keepToken` (this one). Returns how many went. */
+export async function removeOtherDevices(uid: string, keepToken: string | null): Promise<number> {
+  const snap = await devices().where('uid', '==', uid).get();
+  const others = snap.docs.filter((d) => d.get('token') !== keepToken);
+  await Promise.all(others.map((d) => d.ref.delete()));
+  return others.length;
+}
+
 export async function countDevices(uid: string): Promise<number> {
   return (await devices().where('uid', '==', uid).count().get()).data().count;
 }

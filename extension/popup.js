@@ -46,7 +46,7 @@ function parseCode(text) {
 }
 
 async function render() {
-  const { key, courses = [], state, lumeUrl } = await store.get(['key', 'courses', 'state', 'lumeUrl']);
+  const { key, courses = [], state, lumeUrl, ownerMismatch } = await store.get(['key', 'courses', 'state', 'lumeUrl', 'ownerMismatch']);
   app.replaceChildren();
   if (!key) return renderConnect();
 
@@ -68,7 +68,9 @@ async function render() {
       : 'Syncs every 3 hours while Chrome is open.';
   if (state && !state.ok && state.message) {
     $('status-error').hidden = false;
-    $('status-error').textContent = `${state.message.replace(/\.$/, '')}.`;
+    $('status-error').textContent = ownerMismatch
+      ? `NPTEL in this Chrome is signed in as ${ownerMismatch.now}, but this extension syncs ${ownerMismatch.owner}. Log out of NPTEL and log in as ${ownerMismatch.owner}. If this is your Chrome now, tap “Change code” and paste your own code.`
+      : `${state.message.replace(/\.$/, '')}.`;
   }
   if (state?.signedOut) {
     const login = $('login');
@@ -142,6 +144,9 @@ function renderConnect() {
       $('connect-error').textContent = 'That doesn’t look like a connection code. Copy it again from Lume → Settings.';
       return;
     }
+    // A different code is a different student's Lume: start clean, so nothing of the last one carries over.
+    const { key: previous } = await store.get('key');
+    if (previous !== parsed.key) await store.remove(['owner', 'ownerMismatch', 'courses', 'cache', 'state']);
     await store.set(parsed.lumeUrl ? parsed : { key: parsed.key });
     syncNow();
   });

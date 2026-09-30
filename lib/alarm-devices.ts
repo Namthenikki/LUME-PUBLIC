@@ -62,6 +62,15 @@ export async function listAlarmDevices(uid: string): Promise<{ label: string; la
   return snap.docs.map((d) => ({ label: d.get('label') as string, lastSeenAt: (d.get('lastSeenAt') as Timestamp).toMillis() }));
 }
 
+/** Unpairs every phone of the student's except `keepToken` (this one). Returns how many went. */
+export async function unpairOtherPhones(uid: string, keepToken: string | null): Promise<number> {
+  const snap = await devices().where('uid', '==', uid).get();
+  const keep = keepToken ? idOf(keepToken) : null;
+  const others = snap.docs.filter((d) => d.id !== keep);
+  await Promise.all(others.map((d) => d.ref.delete()));
+  return others.length;
+}
+
 export async function unpairAllAlarmDevices(uid: string): Promise<void> {
   const snap = await devices().where('uid', '==', uid).get();
   await Promise.all(snap.docs.map((d) => d.ref.delete()));

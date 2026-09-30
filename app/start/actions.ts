@@ -1,10 +1,10 @@
 'use server';
 
-import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { sessionCookieOptions, sessionToken, USER_COOKIE } from '@/lib/auth';
 import { parseLmsLink } from '@/lib/lms-link';
+import { pushToUser } from '@/lib/push';
 import { recordFailure, tooManyFailures } from '@/lib/rate-limit';
+import { setSessionCookie } from '@/lib/session';
 import { ManipalIcsAdapter } from '@/lib/sources/manipal-ics';
 import type { RawTask } from '@/lib/sources/types';
 import { runSync } from '@/lib/sync';
@@ -29,12 +29,18 @@ export async function connectAction(_prev: { error: string } | null, form: FormD
     return { error: 'The LMS didn’t accept that link. Copy it again from Calendar → Subscribe and paste the whole thing.' };
   }
 
-  const { uid } = await connectLink(link);
+  const { uid, created, gen } = await connectLink(link);
   // Fill Lume in now, from the feed just read (the first sync sends no notifications).
   await runSync(uid, [{ source: 'manipal', authoritative: true, fetchTasks: async () => tasks }]);
+  // The link opened an existing Lume on a new device. If a friend got hold of the link, its owner
+  // hears about it on their own devices, and can sign everyone else out.
+  if (!created) {
+    await pushToUser(uid, {
+      title: 'Your Lume was opened on another device',
+      body: 'Someone pasted your LMS calendar link. If it wasn’t you, open Lume → Settings → Sign out other devices.',
+    }).catch(() => null);
+  }
 
-  const h = await headers();
-  const https = (h.get('x-forwarded-proto') ?? new URL(h.get('origin') ?? 'http://x').protocol.replace(':', '')) === 'https';
-  (await cookies()).set(USER_COOKIE, sessionToken(uid), sessionCookieOptions(https));
+  await setSessionCookie(uid, gen);
   redirect(next.startsWith('/dashboard') ? next : '/dashboard');
 }

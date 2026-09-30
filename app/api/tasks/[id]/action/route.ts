@@ -1,4 +1,5 @@
-import { actionUser, USER_COOKIE, userFromSession } from '@/lib/auth';
+import { actionUser, USER_COOKIE } from '@/lib/auth';
+import { sessionUser } from '@/lib/session';
 import { getTask, markDone, snooze } from '@/lib/tasks';
 import type { NextRequest } from 'next/server';
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<'/api/tasks/[
   const { id } = await ctx.params;
   const body = (await request.json().catch(() => ({}))) as { action?: string; token?: string };
 
-  const uid = actionUser(id, body.token) ?? userFromSession(request.cookies.get(USER_COOKIE)?.value);
+  const uid = actionUser(id, body.token) ?? (await sessionUser(request.cookies.get(USER_COOKIE)?.value))?.uid;
   if (!uid) return new Response('Unauthorized', { status: 401 });
   if (!(await getTask(uid, id))) return new Response('Not found', { status: 404 });
 

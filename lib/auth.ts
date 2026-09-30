@@ -37,14 +37,29 @@ export function isCronRequest(request: Request): boolean {
   return safeEqual(request.headers.get('authorization') ?? '', `Bearer ${secret}`);
 }
 
-/* The session cookie: which Lume this browser opens. */
+/*
+ * The session cookie: which Lume this browser opens. It carries the student's sign-in generation,
+ * which goes up when they sign out their other devices or change their LMS link; a cookie from an
+ * older generation is then turned away (lib/session.ts checks it against the database). Generation 0
+ * keeps the original format, so cookies made before generations existed stay valid until then.
+ */
 
-export function sessionToken(uid: string): string {
-  return `${uid}.${sign(`session:v1:${uid}`)}`;
+export function sessionToken(uid: string, gen = 0): string {
+  return gen === 0 ? `${uid}.${sign(`session:v1:${uid}`)}` : `${uid}.${gen}.${sign(`session:v2:${uid}:${gen}`)}`;
 }
 
+/** The student and generation in a session cookie with a valid signature. Whether it's still current is the database's call. */
+export function parseSession(value: string | undefined): { uid: string; gen: number } | null {
+  if (!value) return null;
+  const parts = value.split('.');
+  const gen = parts.length === 2 ? 0 : parts.length === 3 && /^[1-9]\d{0,8}$/.test(parts[1]) ? Number(parts[1]) : -1;
+  if (gen < 0 || !isUserId(parts[0])) return null;
+  return safeEqual(value, sessionToken(parts[0], gen)) ? { uid: parts[0], gen } : null;
+}
+
+/** Signature only, for the proxy: a quick first gate, not the final word. */
 export function userFromSession(value: string | undefined): string | null {
-  return verified(value, sessionToken);
+  return parseSession(value)?.uid ?? null;
 }
 
 /** Secure whenever the request came over https (always, once deployed); plain http only for local testing. */
