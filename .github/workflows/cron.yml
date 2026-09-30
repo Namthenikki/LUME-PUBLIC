@@ -2,8 +2,9 @@
 # runs are free. GitHub can start scheduled runs a few minutes late; Lume also checks reminders whenever the
 # app or the Android alarm sync talks to it, so a late run is covered.
 #
-# Needs two repository secrets (Settings → Secrets and variables → Actions): APP_URL (the deployed
-# address, e.g. https://your-lume.vercel.app) and CRON_SECRET.
+# Needs the repository secret CRON_SECRET (Settings → Secrets and variables → Actions). APP_URL is
+# optional and defaults to the deployed address. GitHub runs these schedules rarely on small repos
+# (a handful a day), so an outside scheduler like cron-job.org is the dependable one.
 name: Lume cron
 
 on:
@@ -13,7 +14,7 @@ on:
   workflow_dispatch:
 
 env:
-  APP_URL: ${{ secrets.APP_URL }}
+  APP_URL: ${{ secrets.APP_URL || 'https://lume-public.vercel.app' }}
   CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
 jobs:
