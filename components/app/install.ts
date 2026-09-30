@@ -66,6 +66,8 @@ export function useDevice(): Device {
 }
 
 export const APK_URL = '/downloads/lume.apk';
+/** This phone's Lume app token (localStorage), so its alarms follow whoever is signed in here. */
+export const PHONE_KEY = 'lume:phone';
 /** The Android app's package (android/app/build.gradle applicationId). */
 export const ANDROID_PACKAGE = 'app.lume.muj';
 
@@ -78,4 +80,15 @@ export function appLink(action: 'test-alarm' | 'sync' | 'update', fallbackPath: 
 /** Where "Install update" goes: into the app's own updater, or (for apps too old to have one) the APK download. */
 export function updateLink(update: 'in-app' | 'download'): { href: string; download?: boolean } {
   return update === 'in-app' ? { href: appLink('update', APK_URL) } : { href: APK_URL, download: true };
+}
+
+export const isPhoneToken = (t: unknown): t is string => typeof t === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(t);
+
+export function storedPhone(): string | null {
+  try {
+    const t = localStorage.getItem(PHONE_KEY);
+    return isPhoneToken(t) ? t : null;
+  } catch {
+    return null;
+  }
 }

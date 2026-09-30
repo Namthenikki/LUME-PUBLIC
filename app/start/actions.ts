@@ -4,7 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { sessionCookieOptions, sessionToken, USER_COOKIE } from '@/lib/auth';
 import { parseLmsLink } from '@/lib/lms-link';
-import { allowAttempt } from '@/lib/rate-limit';
+import { recordFailure, tooManyFailures } from '@/lib/rate-limit';
 import { ManipalIcsAdapter } from '@/lib/sources/manipal-ics';
 import type { RawTask } from '@/lib/sources/types';
 import { runSync } from '@/lib/sync';
@@ -18,12 +18,13 @@ export async function connectAction(_prev: { error: string } | null, form: FormD
   const link = parseLmsLink(String(form.get('link') ?? ''));
   const next = String(form.get('next') ?? '');
   if ('error' in link) return { error: link.error };
-  if (!(await allowAttempt())) return { error: 'Too many tries from here. Wait 10 minutes, then try again.' };
+  if (await tooManyFailures()) return { error: 'Too many wrong links from this network. Wait 10 minutes, then try again.' };
 
   let tasks: RawTask[];
   try {
     tasks = await new ManipalIcsAdapter(link.url).fetchTasks();
   } catch {
+    await recordFailure();
     await new Promise((r) => setTimeout(r, 600));
     return { error: 'The LMS didn’t accept that link. Copy it again from Calendar → Subscribe and paste the whole thing.' };
   }

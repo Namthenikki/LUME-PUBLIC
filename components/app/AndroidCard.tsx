@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { useTransition } from 'react';
 import { unpairAlarmDevicesAction } from '@/app/dashboard/actions';
 import { Tile } from '../landing/widgets';
-import { APK_URL, appLink, updateLink, useDevice } from './install';
+import { APK_URL, appLink, PHONE_KEY, updateLink, useDevice } from './install';
 import { ago, useNow } from './time';
 import { AndroidSteps } from '../guides/AppGuides';
 import { Panel } from './ui';
@@ -114,7 +114,17 @@ export function AndroidCard({ phones, apkReady }: { phones: { label: string; las
           <button
             type="button"
             disabled={pending}
-            onClick={() => start(() => unpairAlarmDevicesAction())}
+            onClick={() =>
+              start(async () => {
+                await unpairAlarmDevicesAction();
+                // Otherwise the next visit would pair this phone again straight away.
+                try {
+                  localStorage.removeItem(PHONE_KEY);
+                } catch {
+                  // nothing stored
+                }
+              })
+            }
             className="h-10 rounded-[12px] border border-line px-4 text-[13px] font-medium text-red disabled:opacity-60"
           >
             Stop alarms

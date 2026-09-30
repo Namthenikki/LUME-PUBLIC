@@ -2,9 +2,10 @@
 
 import { AnimatePresence, motion } from 'motion/react';
 import { useActionState, useState, useTransition } from 'react';
-import { changeLinkAction, deleteDataAction, signOutAction } from '@/app/dashboard/actions';
+import { changeLinkAction, deleteDataAction, releasePhoneAction, signOutAction } from '@/app/dashboard/actions';
 import { LmsLinkGuide } from '../guides/LmsLinkGuide';
 import { Tile } from '../landing/widgets';
+import { storedPhone } from './install';
 import { disablePush } from './push-client';
 import { Panel } from './ui';
 
@@ -86,7 +87,11 @@ export function YourDataCard() {
 
   const signOut = () =>
     start(async () => {
-      await disablePush().catch(() => {}); // this browser stops getting this Lume's reminders
+      // This browser stops getting this student's reminders, and this phone stops ringing their alarms.
+      // The phone's token stays, so whoever signs in here next gets the phone's alarms.
+      const phone = storedPhone();
+      if (phone) await releasePhoneAction(phone).catch(() => {});
+      await disablePush().catch(() => {});
       await signOutAction();
     });
 

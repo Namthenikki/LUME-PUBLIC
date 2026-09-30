@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { isDeviceToken, pairAlarmDevice, unpairAllAlarmDevices } from '@/lib/alarm-devices';
+import { isDeviceToken, pairAlarmDevice, releaseAlarmDevice, unpairAllAlarmDevices } from '@/lib/alarm-devices';
 import { USER_COOKIE } from '@/lib/auth';
 import { syncUserIfStale } from '@/lib/catch-up';
 import { parseLmsLink } from '@/lib/lms-link';
@@ -63,13 +63,22 @@ export async function changeLinkAction(_prev: { ok?: string; error?: string } | 
   return { ok: outcome === 'same' ? 'That’s the link you already use. Lume is up to date.' : 'Link updated. Lume is reading your LMS again.' };
 }
 
-/** Approves the Android app's device token for this student, so it can read their alarm schedule. */
+/**
+ * Approves the Android app's device token for this student, so it reads their alarm schedule. Runs
+ * each time the app opens, so a phone always rings for whoever is signed in on it.
+ */
 export async function pairAlarmDeviceAction(token: string): Promise<boolean> {
   const uid = await requireUser();
   if (!isDeviceToken(token)) return false;
-  await pairAlarmDevice(uid, token, 'Android app');
-  refresh();
-  return true;
+  const changed = await pairAlarmDevice(uid, token, 'Android app');
+  if (changed) refresh();
+  return changed;
+}
+
+/** Before signing out on a phone: its alarms stop being this student's. */
+export async function releasePhoneAction(token: string) {
+  const uid = await requireUser();
+  if (isDeviceToken(token)) await releaseAlarmDevice(uid, token);
 }
 
 export async function unpairAlarmDevicesAction() {

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useSyncExternalStore } from 'react';
 import { pairAlarmDeviceAction } from '@/app/dashboard/actions';
-import { rememberAppVersion } from './install';
+import { isPhoneToken, PHONE_KEY, rememberAppVersion } from './install';
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -63,16 +63,25 @@ export function AppBoot() {
   }, [router]);
 
   // The Android app opens Lume with ?lume_app=<version>, plus ?lume_device=<token> until it's paired:
-  // remember the version, approve the phone, and tidy the URL.
+  // remember both, and tidy the URL. The phone is then paired with whoever is signed in, every time the
+  // app opens: if a friend signs in on this phone, its alarms become theirs.
   useEffect(() => {
     const url = new URL(location.href);
     const token = url.searchParams.get('lume_device');
-    if (!token && !url.searchParams.has('lume_app')) return;
-    rememberAppVersion();
-    url.searchParams.delete('lume_device');
-    url.searchParams.delete('lume_app');
-    history.replaceState(null, '', url.pathname + url.search + url.hash);
-    if (token) pairAlarmDeviceAction(token).catch(() => {});
+    if (token || url.searchParams.has('lume_app')) {
+      rememberAppVersion();
+      url.searchParams.delete('lume_device');
+      url.searchParams.delete('lume_app');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+    let phone = isPhoneToken(token) ? token : null;
+    try {
+      if (phone) localStorage.setItem(PHONE_KEY, phone);
+      else phone = localStorage.getItem(PHONE_KEY);
+    } catch {
+      // storage blocked: pair from the URL only
+    }
+    if (isPhoneToken(phone)) pairAlarmDeviceAction(phone).catch(() => {});
   }, []);
 
   return null;

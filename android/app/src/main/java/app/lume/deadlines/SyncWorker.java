@@ -13,6 +13,9 @@ import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import org.json.JSONArray;
+
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /** Keeps the phone's alarms in step with Lume: every 15 minutes, and right after the app opens. */
@@ -29,6 +32,9 @@ public class SyncWorker extends Worker {
             Api.Schedule schedule = Api.fetchSchedule(c, 15_000);
             if (schedule == null) {
                 Device.setPaired(c, false);
+                // Not paired with anyone (not approved yet, signed out, or alarms stopped): nothing set on this
+                // phone should ring, since it may be the previous student's.
+                Alarms.replaceAll(c, new JSONArray(), Collections.emptySet());
                 // Not approved yet. The owner is probably unlocking Lume right now, so keep checking
                 // every minute for the first 10 minutes after launch instead of waiting for the next 15-minute run.
                 long sinceLaunch = System.currentTimeMillis() - Device.prefs(c).getLong("launched_at", 0);

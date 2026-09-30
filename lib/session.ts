@@ -9,10 +9,13 @@ export async function currentUserId(): Promise<string | null> {
   return userFromSession((await cookies()).get(USER_COOKIE)?.value);
 }
 
-/** For server actions: the proxy guards pages, but actions check on their own too. */
+/**
+ * For server actions: the proxy guards pages, but actions check on their own too, including that the
+ * student still exists (their data may have been deleted from another device).
+ */
 export async function requireUser(): Promise<string> {
   const uid = await currentUserId();
-  if (!uid) throw new Error('Connect your LMS first');
+  if (!uid || !(await getUser(uid))) throw new Error('Connect your LMS first');
   return uid;
 }
 

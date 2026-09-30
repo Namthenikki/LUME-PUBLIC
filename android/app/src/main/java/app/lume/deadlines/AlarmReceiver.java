@@ -4,8 +4,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.Collections;
 
 /**
  * An alarm or a reminder is due. First ask Lume (briefly) whether the task is still pending, so a
@@ -34,7 +37,12 @@ public class AlarmReceiver extends BroadcastReceiver {
                 boolean ring = true;
                 try {
                     Api.Schedule schedule = Api.fetchSchedule(app, 4000);
-                    if (schedule != null) {
+                    if (schedule == null) {
+                        // Not paired with anyone now (signed out, or alarms stopped): the alarms still set on
+                        // this phone belong to whoever used it before, so they're all cleared, none rings.
+                        Alarms.replaceAll(app, new JSONArray(), Collections.emptySet());
+                        ring = false;
+                    } else {
                         Alarms.replaceAll(app, schedule.alarms, schedule.pendingTaskIds);
                         ring = schedule.pendingTaskIds.contains(alarm.optString("taskId"));
                     }

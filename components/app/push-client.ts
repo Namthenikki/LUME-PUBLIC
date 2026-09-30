@@ -63,12 +63,26 @@ export async function enablePush(): Promise<PushState> {
   return 'on';
 }
 
-/** FCM tokens rotate now and then; re-register quietly whenever the app opens. */
+/**
+ * Re-registers this browser once per visit: FCM tokens rotate now and then, and if someone else has
+ * signed in here since, the browser's notifications become theirs.
+ */
 export async function refreshPushToken(): Promise<void> {
   const token = await currentToken();
-  if (token !== storedToken()) {
+  let registered = false;
+  try {
+    registered = sessionStorage.getItem('lume:push-registered') === token;
+  } catch {
+    // storage blocked: register every time
+  }
+  if (token !== storedToken() || !registered) {
     await registerDeviceAction(token, deviceLabel());
     storeToken(token);
+    try {
+      sessionStorage.setItem('lume:push-registered', token);
+    } catch {
+      // fine
+    }
   }
 }
 

@@ -15,9 +15,24 @@ const idOf = (token: string) => createHash('sha256').update(token).digest('hex')
 
 export const isDeviceToken = (t: unknown): t is string => typeof t === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(t);
 
-export async function pairAlarmDevice(uid: string, token: string, label: string): Promise<void> {
+/**
+ * Pairs a phone with this student, or moves it to them from whoever had it (a friend signing in on the
+ * same phone). Returns false when it was already theirs, so nothing is written.
+ */
+export async function pairAlarmDevice(uid: string, token: string, label: string): Promise<boolean> {
+  const ref = devices().doc(idOf(token));
+  const doc = await ref.get();
+  if (doc.exists && doc.get('uid') === uid) return false;
   const now = Timestamp.now();
-  await devices().doc(idOf(token)).set({ uid, label: label.slice(0, 80), pairedAt: now, lastSeenAt: now });
+  await ref.set({ uid, label: label.slice(0, 80), pairedAt: now, lastSeenAt: now }, { merge: true });
+  return true;
+}
+
+/** Signing out on a phone: it stops ringing this student's alarms (at its next sync). */
+export async function releaseAlarmDevice(uid: string, token: string): Promise<void> {
+  const ref = devices().doc(idOf(token));
+  const doc = await ref.get();
+  if (doc.exists && doc.get('uid') === uid) await ref.delete();
 }
 
 /**
