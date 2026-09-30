@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Lume',
     short_name: 'Lume',
-    description: 'Every Manipal LMS deadline in one place, with reminders until it is done.',
+    description: 'Every Manipal LMS and NPTEL deadline in one place, with reminders until it is done.',
     start_url: '/dashboard',
     scope: '/',
     display: 'standalone',

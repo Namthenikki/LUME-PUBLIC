@@ -7,7 +7,7 @@ const kalam = Kalam({ weight: '400', subsets: ['latin'], variable: '--font-kalam
 
 export const metadata: Metadata = {
   title: 'Lume',
-  description: 'Every Manipal LMS deadline in one place, with reminders until it is done.',
+  description: 'Every Manipal LMS and NPTEL deadline in one place, with reminders until it is done.',
   // On iPhone, Lume is added to the Home Screen from Safari and opens full screen from there.
   appleWebApp: { capable: true, title: 'Lume', statusBarStyle: 'default' },
   icons: { apple: '/icons/apple-180.png' },

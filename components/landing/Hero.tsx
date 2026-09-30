@@ -125,7 +125,7 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.45, ease }}
         >
-          Assignments and quizzes from your Manipal LMS, with reminders until they&apos;re done.
+          Assignments and quizzes from your Manipal LMS and NPTEL, with reminders until they&apos;re done.
         </motion.p>
 
         <motion.div
