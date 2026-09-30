@@ -8,7 +8,22 @@ import { Tile } from './widgets';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-function Feature({ title, body, className = '', dashed = false, children }: { title: string; body: string; className?: string; dashed?: boolean; children: React.ReactNode }) {
+function Feature({
+  title,
+  body,
+  className = '',
+  dashed = false,
+  action,
+  children,
+}: {
+  title: string;
+  body: string;
+  className?: string;
+  dashed?: boolean;
+  /** Buttons under the text, e.g. a download. */
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <motion.article
       initial={{ opacity: 0, y: 30 }}
@@ -20,6 +35,7 @@ function Feature({ title, body, className = '', dashed = false, children }: { ti
       <div className="relative flex h-[250px] items-center justify-center">{children}</div>
       <h3 className="mt-6 text-[21px] font-medium tracking-[-0.02em]">{title}</h3>
       <p className="mx-auto mt-2 max-w-[36ch] text-[15px] text-ink-2">{body}</p>
+      {action && <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div>}
     </motion.article>
   );
 }
@@ -262,9 +278,16 @@ function ComingFragment() {
       <div className="absolute left-1/2 top-0 -translate-x-1/2">
         <div className="bob">
           <Tile size={80}>
+            {/* A puzzle piece: Chrome's symbol for an extension */}
             <svg viewBox="0 0 32 32" className="size-9" aria-hidden>
-              <rect x="4" y="7" width="24" height="18" rx="3.5" fill="#fff" stroke="#2a2a31" strokeWidth="2" />
-              <path d="M5 9l11 8 11-8" fill="none" stroke="var(--color-red)" strokeWidth="2.2" strokeLinejoin="round" />
+              <path
+                d="M7 11h5.5a3 3 0 1 1 6 0H24v5.5a3 3 0 1 1 0 6V27H7V22.5a3 3 0 1 0 0-6z"
+                fill="#fff"
+                stroke="#2a2a31"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+              <circle cx="15.5" cy="19" r="2.2" fill="var(--color-blue)" />
             </svg>
           </Tile>
         </div>
@@ -285,7 +308,25 @@ export function Features() {
       <Feature className="lg:col-span-7" title="Done from the notification" body="Tap Mark done without opening the app, and the rest of that task's reminders are cancelled.">
         <NotificationFragment />
       </Feature>
-      <Feature className="lg:col-span-5" dashed title="NPTEL too" body="A small Chrome extension brings in your NPTEL assignments, next to your LMS deadlines.">
+      <Feature
+        className="lg:col-span-5"
+        title="NPTEL too"
+        body="A small Chrome extension on your laptop brings in your NPTEL assignments, next to your LMS deadlines."
+        action={
+          <>
+            <a
+              href="/downloads/lume-nptel-extension.zip"
+              download
+              className="inline-flex h-11 items-center justify-center rounded-[12px] bg-blue px-5 text-[14px] font-medium text-white shadow-[0_10px_24px_-10px_rgb(29_110_245/0.8)]"
+            >
+              Get the extension
+            </a>
+            <a href="/help#nptel" className="inline-flex h-11 items-center justify-center rounded-[12px] border border-line bg-white px-5 text-[14px] font-medium">
+              How to set it up
+            </a>
+          </>
+        }
+      >
         <ComingFragment />
       </Feature>
     </div>

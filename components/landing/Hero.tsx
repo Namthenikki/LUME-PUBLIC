@@ -166,6 +166,24 @@ export function Hero() {
           )}
         </motion.div>
 
+        {/* The NPTEL extension runs in Chrome on a laptop, so phones don't get this line. */}
+        <motion.p
+          className="mt-5 hidden max-w-[46ch] text-[14px] text-ink-2 sm:block"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.9, delay: 0.7, ease }}
+        >
+          Doing NPTEL?{' '}
+          <a href="/downloads/lume-nptel-extension.zip" download className="font-medium text-blue underline-offset-2 hover:underline">
+            Get the Chrome extension
+          </a>{' '}
+          for your laptop, then{' '}
+          <a href="/help#nptel" className="font-medium text-blue underline-offset-2 hover:underline">
+            follow the setup steps
+          </a>
+          .
+        </motion.p>
+
         {/* On phones the widgets sit below the button instead of around the headline */}
         <div className="relative mt-14 h-[250px] w-full max-w-[340px] md:hidden" aria-hidden>
           <motion.div
