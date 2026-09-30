@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.lume.muj",
+      "sha256_cert_fingerprints": [
+        "16:9A:6D:99:96:96:DF:DF:C8:24:43:A0:4B:DA:0F:82:85:A8:B1:79:6D:FB:38:2E:AB:B9:B6:61:B9:BF:AB:59"
+      ]
+    }
+  }
+]
