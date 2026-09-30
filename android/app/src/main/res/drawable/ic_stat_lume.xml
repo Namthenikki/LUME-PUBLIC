@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar icon: the Lume mark in white (Android only uses its shape). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M4,13.2 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0"
+        android:strokeWidth="2.6"
+        android:strokeColor="#FFFFFF" />
+    <path
+        android:pathData="M12,13.2 V9.6"
+        android:strokeWidth="2.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9.3,3.4 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0" />
+</vector>

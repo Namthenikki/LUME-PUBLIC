@@ -1,0 +1,68 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The site this app wraps, e.g. https://lume-xyz.vercel.app (set in gradle.properties or with -Plume.origin=...).
+def origin = project.property('lume.origin').toString().replaceAll('/+$', '')
+def host = new URI(origin).host
+
+// Release signing, from android/keystore.properties (not committed).
+def signing = new Properties()
+def signingFile = rootProject.file('keystore.properties')
+if (signingFile.exists()) signingFile.withInputStream { signing.load(it) }
+
+android {
+    namespace = 'app.lume.deadlines'
+    // The current AndroidX libraries need API 37 to compile against; the app still targets 36.
+    compileSdk = 37
+
+    defaultConfig {
+        // Lume for MUJ students; the owner's personal Lume is app.lume.deadlines, so both can be installed.
+        applicationId = 'app.lume.muj'
+        minSdk = 26
+        targetSdk = 36
+        // scripts/build-android.mjs passes an ever-increasing code, so a new APK installs over the old one.
+        versionCode = (project.findProperty('lume.versionCode') ?: '1').toString().toInteger()
+        versionName = (project.findProperty('lume.versionName') ?: 'dev').toString()
+
+        buildConfigField 'String', 'LUME_ORIGIN', "\"${origin}\""
+        manifestPlaceholders = [lumeHost: host, lumeStartUrl: "${origin}/dashboard".toString()]
+        // Digital Asset Links: lets the app open the site full screen, with no browser bar.
+        resValue 'string', 'asset_statements',
+            "[{\\\"relation\\\": [\\\"delegate_permission/common.handle_all_urls\\\"], \\\"target\\\": {\\\"namespace\\\": \\\"web\\\", \\\"site\\\": \\\"${origin}\\\"}}]"
+    }
+
+    buildFeatures {
+        buildConfig = true
+        resValues = true
+    }
+
+    signingConfigs {
+        release {
+            if (signingFile.exists()) {
+                storeFile = rootProject.file(signing.getProperty('storeFile'))
+                storePassword = signing.getProperty('storePassword')
+                keyAlias = signing.getProperty('keyAlias')
+                keyPassword = signing.getProperty('keyPassword')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.release
+            minifyEnabled = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
+    implementation 'androidx.work:work-runtime:2.12.0'
+    implementation 'androidx.core:core:1.19.1'
+}

@@ -1,0 +1,38 @@
+# Sends due reminders every 5 minutes and syncs every student's LMS hourly. On a public repo these
+# runs are free. GitHub can start scheduled runs a few minutes late; Lume also checks reminders whenever the
+# app or the Android alarm sync talks to it, so a late run is covered.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions): APP_URL (the deployed
+# address, e.g. https://your-lume.vercel.app) and CRON_SECRET.
+name: Lume cron
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # reminders
+    - cron: '5 * * * *' # LMS sync
+  workflow_dispatch:
+
+env:
+  APP_URL: ${{ secrets.APP_URL }}
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+jobs:
+  sync:
+    if: github.event.schedule == '5 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sync the LMS
+        run: |
+          test -n "$CRON_SECRET" || { echo "::warning::Add the CRON_SECRET repository secret"; exit 0; }
+          curl -fsS --retry 2 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/sync"
+
+  remind:
+    if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send due reminders
+        run: |
+          test -n "$CRON_SECRET" || { echo "::warning::Add the CRON_SECRET repository secret"; exit 0; }
+          curl -fsS --retry 2 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/remind"

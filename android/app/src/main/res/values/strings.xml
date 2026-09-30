@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lume</string>
+    <string name="alarm_channel">Deadline alarms</string>
+    <string name="alarm_channel_description">Rings 12 hours, 6 hours, 30 minutes and 10 minutes before a deadline, until you mark it done or snooze it.</string>
+    <string name="reminder_channel">Deadline reminders</string>
+    <string name="reminder_channel_description">2 days, 1 day, the morning of, and 6, 3 and 1 hours before each deadline.</string>
+    <string name="mark_done">Mark done</string>
+    <string name="remind_later">Remind in 2h</string>
+    <string name="snooze">Snooze 10 min</string>
+    <string name="open_lume">Open Lume</string>
+</resources>

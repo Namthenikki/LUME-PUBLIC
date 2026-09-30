@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The web app's palette (app/globals.css). -->
+<resources>
+    <color name="panel">#F3F3F5</color>
+    <color name="card">#FFFFFF</color>
+    <color name="ink">#0E0E11</color>
+    <color name="ink_2">#62626B</color>
+    <color name="blue">#1D6EF5</color>
+    <color name="cyan">#22C1F1</color>
+    <color name="red">#F04438</color>
+    <color name="chip">#F0F0F3</color>
+</resources>

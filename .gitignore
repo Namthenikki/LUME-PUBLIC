@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# next.js / build
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# env files — MUJ_ICS_URL contains a personal token, never commit it
+.env*
+!.env.example
+
+# misc
+.vercel
+.DS_Store
+npm-debug.log*
+*.pem
+
+# Firebase service-account key (secret)
+firebase-admin*.json
+*firebase-adminsdk*.json
+firebase-web.txt
+
+# Android app build output and signing secrets
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.jks
+android/keystore.properties
+android/*.log
+
+# Firebase emulator logs (local testing)
+*-debug.log

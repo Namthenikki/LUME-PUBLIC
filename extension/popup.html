@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lume for NPTEL</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="top">
+      <svg viewBox="0 0 24 24" class="mark" aria-hidden="true">
+        <circle cx="12" cy="13.2" r="8" fill="none" stroke="currentColor" stroke-width="2.6" />
+        <path d="M12 13.2V9.6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+        <circle cx="12" cy="3.4" r="2.7" fill="#22c1f1" />
+      </svg>
+      <span class="brand">Lume <span class="muted">for NPTEL</span></span>
+      <span id="pill" class="pill" hidden></span>
+    </header>
+
+    <main id="app"></main>
+
+    <template id="connect">
+      <section class="card">
+        <h1>Connect to Lume</h1>
+        <p class="sub">Paste the connection code from <b>Lume → Settings → Sources → NPTEL</b>. Your NPTEL deadlines then show up in Lume, with reminders and alarms on your phone.</p>
+        <form id="connect-form">
+          <textarea id="code" rows="3" placeholder="https://…#…" spellcheck="false" autocomplete="off" required></textarea>
+          <p id="connect-error" class="error" hidden></p>
+          <button class="btn primary" type="submit">Connect</button>
+        </form>
+      </section>
+    </template>
+
+    <template id="main">
+      <section class="card" id="status">
+        <div class="status-row">
+          <div>
+            <p id="status-title" class="status-title"></p>
+            <p id="status-sub" class="sub"></p>
+          </div>
+        </div>
+        <p id="status-error" class="error" hidden></p>
+        <div class="actions">
+          <a id="login" class="btn danger" target="_blank" hidden>Log in to NPTEL</a>
+          <button id="sync" class="btn primary" type="button">Sync now</button>
+        </div>
+      </section>
+
+      <section class="card" id="upcoming-card" hidden>
+        <h2>Coming up</h2>
+        <ul id="upcoming" class="list"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Your courses</h2>
+        <ul id="courses" class="list"></ul>
+        <form id="add-form" class="add">
+          <input id="add-input" placeholder="Course link or id, e.g. noc26_cs17" spellcheck="false" autocomplete="off" />
+          <button class="btn" type="submit">Add</button>
+        </form>
+        <p id="add-error" class="error" hidden></p>
+        <p class="hint">Opening a course on NPTEL in Chrome adds it too.</p>
+      </section>
+
+      <footer class="foot">
+        <span id="lume-host"></span>
+        <button id="disconnect" class="link" type="button">Change code</button>
+      </footer>
+    </template>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

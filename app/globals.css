@@ -1,0 +1,188 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-page: #ffffff;
+  --color-panel: #f3f3f5;
+  --color-card: #ffffff;
+  --color-ink: #0e0e11;
+  --color-ink-2: #62626b;
+  --color-ink-3: #a3a3ac;
+  --color-line: #e8e8ec;
+  --color-sunken: #f6f6f8;
+  --color-chip: #f0f0f3;
+  --color-blue: #1d6ef5;
+  --color-cyan: #22c1f1;
+  --color-orange: #f59e0b;
+  --color-green: #12b76a;
+  --color-red: #f04438;
+  --color-sticky: #fde68a;
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-hand: var(--font-kalam), cursive;
+
+  --shadow-card: 0 1px 2px rgb(14 14 17 / 0.04), 0 14px 34px -14px rgb(14 14 17 / 0.14);
+  --shadow-float: 0 2px 6px rgb(14 14 17 / 0.05), 0 30px 50px -18px rgb(14 14 17 / 0.24);
+  --shadow-tile: inset 0 1px 0 #fff, inset 0 -3px 0 rgb(14 14 17 / 0.05), 0 20px 36px -12px rgb(14 14 17 / 0.3),
+    0 4px 10px -4px rgb(14 14 17 / 0.12);
+
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    background: var(--color-page);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--color-page);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-blue);
+    outline-offset: 3px;
+    border-radius: 10px;
+  }
+}
+
+/*
+ * The app pages are light by default, like the landing. Settings can switch them to dark, or to
+ * follow the system: the choice is `data-theme` on `.app` ("light" | "dark" | "system").
+ */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme='system'], [data-theme='system'] *) {
+      @slot;
+    }
+  }
+}
+
+.app {
+  --dot: rgb(14 14 17 / 0.055);
+}
+
+.app[data-theme='dark'] {
+  color-scheme: dark;
+  --color-page: #0e1015;
+  --color-panel: #11141a;
+  --color-card: #181c24;
+  --color-sunken: #1e232c;
+  --color-chip: #252b36;
+  --color-line: #262c37;
+  --color-ink: #eef1f6;
+  --color-ink-2: #9aa3b2;
+  --color-ink-3: #667085;
+  --dot: rgb(255 255 255 / 0.05);
+}
+
+/* Tailwind inlines shadow values, so dark mode swaps them through its --tw-shadow variable. */
+.app[data-theme='dark'] .shadow-card {
+  --tw-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 14px 34px -14px rgb(0 0 0 / 0.7);
+}
+
+.app[data-theme='dark'] .shadow-float {
+  --tw-shadow: 0 0 0 1px rgb(255 255 255 / 0.06), 0 30px 50px -18px rgb(0 0 0 / 0.8);
+}
+
+html:has(.app[data-theme='dark']),
+html:has(.app[data-theme='dark']) body {
+  background: #11141a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app[data-theme='system'] {
+    color-scheme: dark;
+    --color-page: #0e1015;
+    --color-panel: #11141a;
+    --color-card: #181c24;
+    --color-sunken: #1e232c;
+    --color-chip: #252b36;
+    --color-line: #262c37;
+    --color-ink: #eef1f6;
+    --color-ink-2: #9aa3b2;
+    --color-ink-3: #667085;
+    --dot: rgb(255 255 255 / 0.05);
+  }
+
+  .app[data-theme='system'] .shadow-card {
+    --tw-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 14px 34px -14px rgb(0 0 0 / 0.7);
+  }
+
+  .app[data-theme='system'] .shadow-float {
+    --tw-shadow: 0 0 0 1px rgb(255 255 255 / 0.06), 0 30px 50px -18px rgb(0 0 0 / 0.8);
+  }
+
+  html:has(.app[data-theme='system']),
+  html:has(.app[data-theme='system']) body {
+    background: #11141a;
+  }
+}
+
+html:has(.app[data-theme='light']),
+html:has(.app[data-theme='light']) body {
+  background: var(--color-panel);
+}
+
+/* The faint dot grid from the landing's hero, also behind the app. */
+.dots {
+  background-image: radial-gradient(var(--dot, rgb(14 14 17 / 0.075)) 1px, transparent 1.3px);
+  background-size: 13px 13px;
+}
+
+/* Floating widgets bob gently, each on its own rhythm (set with --float-delay). */
+@keyframes bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -9px;
+  }
+}
+
+.bob {
+  animation: bob 6.5s ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+}
+
+/* Server-rendered lists fade in, one row after another (delay set per row). */
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.appear {
+  animation: appear 600ms var(--ease-soft) both;
+}
+
+/* Progress rings fill in from empty on load, then slide to a new value (e.g. after marking a task done). */
+@keyframes ring-fill {
+  from {
+    stroke-dashoffset: var(--ring-length);
+  }
+}
+
+.ring-fill {
+  animation: ring-fill 1.4s var(--ease-soft) 0.15s backwards;
+  transition:
+    stroke-dashoffset 0.9s var(--ease-soft),
+    opacity 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bob,
+  .appear,
+  .ring-fill {
+    animation: none;
+    transition: none;
+  }
+}
