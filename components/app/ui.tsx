@@ -39,7 +39,6 @@ export function TypeChip({ type }: { type: TaskType }) {
 const SOURCE_CHIP = {
   manipal: { label: 'MUJ', className: 'bg-blue/12 text-blue' },
   nptel: { label: 'NPTEL', className: 'bg-orange/15 text-[#b45309]' },
-  iitm: { label: 'IITM', className: 'bg-red/12 text-red' },
 };
 
 export function SourceChip({ source }: { source: keyof typeof SOURCE_CHIP }) {
@@ -47,4 +46,4 @@ export function SourceChip({ source }: { source: keyof typeof SOURCE_CHIP }) {
   return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip.className}`}>{chip.label}</span>;
 }
 
-export const SOURCE_NAME = { manipal: 'Manipal LMS', nptel: 'NPTEL', iitm: 'IITM BS' } as const;
+export const SOURCE_NAME = { manipal: 'Manipal LMS', nptel: 'NPTEL' } as const;

@@ -1,4 +1,4 @@
-export type Source = 'manipal' | 'nptel' | 'iitm';
+export type Source = 'manipal' | 'nptel';
 export type TaskType = 'assignment' | 'quiz' | 'other';
 
 /** A deadline as a source reports it, before it is stored as a task. */
