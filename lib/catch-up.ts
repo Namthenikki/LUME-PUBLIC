@@ -37,7 +37,7 @@ export async function remindIfIdle(now = new Date()) {
 export async function syncUserIfStale(uid: string, gapMs = SYNC_GAP) {
   if (!(await claim(userRef(uid).collection('meta').doc('sync-lock'), gapMs, Date.now()))) return null;
   const user = await getUser(uid);
-  return user ? runSync(uid, [lmsAdapter(user)]) : null;
+  return user ? runSync(uid, [lmsAdapter(uid, user)]) : null;
 }
 
 /** Syncs every student (the hourly scheduler job), unless that started within the last minute. */

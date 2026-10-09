@@ -1,6 +1,6 @@
 import { connection } from 'next/server';
 import { delay, PageHeader } from '@/components/app/PageHeader';
-import { SourceChip, TypeChip, Panel } from '@/components/app/ui';
+import { SOURCE_TILE, SourceChip, TypeChip, Panel } from '@/components/app/ui';
 import { UndoButton } from '@/components/app/UndoButton';
 import { CheckTile } from '@/components/landing/widgets';
 import { pageUser } from '@/lib/session';
@@ -35,11 +35,11 @@ export default async function DonePage() {
         </Panel>
       ) : (
         <Panel title="Finished" action={<span className="text-[13px] text-ink-3">{done.length}</span>} className="appear">
-          <ul>
+          <ul className="flex flex-col gap-2">
             {done.map((t, i) => {
               const late = t.doneAt !== null && t.doneAt > t.dueAt;
               return (
-                <li key={t.id} className="appear flex items-center gap-3 border-t border-line py-3 first:border-0" style={delay(i)}>
+                <li key={t.id} className={`appear flex items-center gap-3 rounded-[16px] px-3 py-3 ${SOURCE_TILE[t.source]}`} style={delay(i)}>
                   <span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-green text-white">
                     <svg viewBox="0 0 20 20" className="size-3.5" aria-hidden>
                       <path d="M5 10.5l3.2 3.2L15 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />

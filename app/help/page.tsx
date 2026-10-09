@@ -1,4 +1,5 @@
 import { AndroidSteps, IphoneSteps } from '@/components/guides/AppGuides';
+import { ExtensionSteps } from '@/components/guides/ExtensionGuide';
 import { LmsLinkGuide } from '@/components/guides/LmsLinkGuide';
 import { Pill, Step, Steps } from '@/components/guides/Steps';
 import { LumeMark } from '@/components/LumeMark';
@@ -6,14 +7,14 @@ import androidRelease from '@/lib/android-release.json';
 
 export const metadata = {
   title: 'How to set up · Lume',
-  description: 'Set up Lume in about three minutes: connect your MUJ LMS, get the app, turn on reminders.',
+  description: 'Set up Lume in about three minutes: connect your MUJ LMS, get the app, turn on reminders, add the Chrome extension.',
 };
 
 const CONTENTS = [
   { href: '#lms', title: 'Connect your LMS', note: 'The only must-do' },
   { href: '#app', title: 'Get the app', note: 'Android or iPhone' },
   { href: '#reminders', title: 'Turn on reminders', note: 'One tap' },
-  { href: '#nptel', title: 'Add NPTEL', note: 'Optional, needs a laptop' },
+  { href: '#extension', title: 'Add the extension', note: 'LMS quiz posts + NPTEL' },
 ];
 
 function Section({ id, title, sub, children }: { id: string; title: string; sub?: string; children: React.ReactNode }) {
@@ -124,24 +125,13 @@ export default function HelpPage() {
           </p>
         </Section>
 
-        <Section id="nptel" title="4. Add NPTEL (optional)" sub="NPTEL has no calendar link, so a small Chrome extension on your laptop reads your courses while you’re signed in.">
-          <Steps>
-            <Step n={1} title="Open Lume on your laptop, in Chrome">
-              Connect with your LMS link if it asks.
-            </Step>
-            <Step n={2} title="Go to Settings → Sources → NPTEL → How to set up">
-              Download the extension there and unzip it (right-click → Extract All).
-            </Step>
-            <Step n={3} title="Load it into Chrome" look={<Pill>Load unpacked</Pill>}>
-              Open chrome://extensions, turn on Developer mode (top right), click Load unpacked and pick the unzipped folder.
-            </Step>
-            <Step n={4} title="Connect it to your Lume">
-              Click the puzzle piece in Chrome’s toolbar, pin Lume, click it, and paste the connection code from the same Settings screen.
-            </Step>
-            <Step n={5} title="Open each of your NPTEL courses once">
-              Log in to NPTEL in that Chrome. Each course you open is added, and syncs every 3 hours while Chrome is open.
-            </Step>
-          </Steps>
+        <Section
+          id="extension"
+          title="4. Add the Lume extension"
+          sub="Some teachers post quizzes only on the LMS (in a course’s Activity Feed or Announcements), not in the LMS calendar. This small Chrome extension reads those posts so Lume can remind you. It also brings in NPTEL."
+        >
+          <span id="nptel" className="block scroll-mt-6" aria-hidden />
+          <ExtensionSteps />
         </Section>
 
         <Section id="fix" title="If something’s off">

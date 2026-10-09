@@ -25,12 +25,11 @@ import org.json.JSONObject;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.Set;
 import java.util.TimeZone;
 
 /**
  * Deadline alarms. Each one is an exact alarm-clock alarm; when it goes off, an insistent alarm
- * notification rings (alarm sound on the alarm volume, repeating) until it's marked done or snoozed.
+ * notification rings (alarm sound on the alarm volume, repeating) until it's marked done or heard.
  * On a locked phone it opens the full-screen alarm screen.
  */
 final class Alarms {
@@ -38,7 +37,6 @@ final class Alarms {
 
     static final String CHANNEL = "deadline_alarms";
     static final String EXTRA = "alarm";
-    static final long SNOOZE_MS = 10 * 60_000L;
     /** Sleep time in IST: nothing rings (matches lib/quiet.ts on the server). */
     static final int QUIET_START_HOUR = 0;
     static final int QUIET_END_HOUR = 8;
@@ -68,52 +66,21 @@ final class Alarms {
 
     /* Scheduling */
 
-    /**
-     * Replaces the scheduled alarms with the server's list. Local snoozes survive while their task
-     * is still pending.
-     */
-    static synchronized void replaceAll(Context c, JSONArray fromServer, Set<String> pendingTaskIds) {
+    /** Replaces the scheduled alarms with the server's list. */
+    static synchronized void replaceAll(Context c, JSONArray fromServer) {
         JSONArray old = scheduled(c);
-        JSONArray next = new JSONArray();
-        long now = System.currentTimeMillis();
         for (int i = 0; i < old.length(); i++) {
             JSONObject a = old.optJSONObject(i);
-            if (a == null) continue;
-            cancel(c, a.optString("id"));
-            boolean snooze = a.optString("id").endsWith(":snooze");
-            if (snooze && a.optLong("at") > now && pendingTaskIds.contains(a.optString("taskId"))) next.put(a);
+            if (a != null) cancel(c, a.optString("id"));
         }
-        for (int i = 0; i < fromServer.length(); i++) {
-            JSONObject a = fromServer.optJSONObject(i);
-            if (a != null) next.put(a);
-        }
-        for (int i = 0; i < next.length(); i++) schedule(c, next.optJSONObject(i));
-        save(c, next);
+        for (int i = 0; i < fromServer.length(); i++) schedule(c, fromServer.optJSONObject(i));
+        save(c, fromServer);
     }
 
     /** After a reboot or an app update: put back everything that hasn't gone off yet. */
     static synchronized void restore(Context c) {
         JSONArray all = scheduled(c);
         for (int i = 0; i < all.length(); i++) schedule(c, all.optJSONObject(i));
-    }
-
-    static synchronized void snooze(Context c, JSONObject alarm) {
-        try {
-            JSONObject s = new JSONObject(alarm.toString());
-            s.put("id", alarm.optString("taskId") + ":snooze");
-            s.put("at", System.currentTimeMillis() + SNOOZE_MS);
-            JSONArray all = scheduled(c);
-            JSONArray next = new JSONArray();
-            for (int i = 0; i < all.length(); i++) {
-                JSONObject a = all.optJSONObject(i);
-                if (a != null && !a.optString("id").equals(s.optString("id"))) next.put(a);
-            }
-            next.put(s);
-            schedule(c, s);
-            save(c, next);
-        } catch (JSONException ignored) {
-            // the alarm came from our own JSON; nothing to recover
-        }
     }
 
     /** Cancels every alarm left for a task, e.g. after it's marked done. */
@@ -201,7 +168,7 @@ final class Alarms {
                 .setFullScreenIntent(fullScreen, true)
                 .setContentIntent(fullScreen)
                 .addAction(0, c.getString(R.string.mark_done), ActionReceiver.pending(c, ActionReceiver.DONE, a))
-                .addAction(0, c.getString(R.string.snooze), ActionReceiver.pending(c, ActionReceiver.SNOOZE, a))
+                .addAction(0, c.getString(R.string.heard), ActionReceiver.pending(c, ActionReceiver.HEARD, a))
                 .build();
         n.flags |= Notification.FLAG_INSISTENT; // keeps ringing until it's handled
 

@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { isDeviceToken, pairAlarmDevice, releaseAlarmDevice, unpairAllAlarmDevices, unpairOtherPhones } from '@/lib/alarm-devices';
+import { isDeviceToken, pairAlarmDevice, releaseAlarmDevice, setAlarmsOn, unpairAllAlarmDevices, unpairOtherPhones } from '@/lib/alarm-devices';
 import { USER_COOKIE } from '@/lib/auth';
 import { syncUserIfStale } from '@/lib/catch-up';
 import { parseLmsLink } from '@/lib/lms-link';
@@ -104,6 +104,13 @@ export async function releasePhoneAction(token: string) {
 export async function unpairAlarmDevicesAction() {
   const uid = await requireUser();
   await unpairAllAlarmDevices(uid);
+  refresh();
+}
+
+/** Alarms on or off for every phone of this student's; off, their reminders come as plain notifications. */
+export async function setAlarmsOnAction(on: boolean) {
+  const uid = await requireUser();
+  await setAlarmsOn(uid, on);
   refresh();
 }
 

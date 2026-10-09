@@ -40,12 +40,16 @@ export function HomeView({
   focusId,
   apkReady,
   nptelAlert,
+  postsAlert,
+  appVersion,
 }: {
   tasks: TaskView[];
   renderedAt: number;
   focusId: string | null;
   apkReady: boolean;
   nptelAlert: string | null;
+  postsAlert: string | null;
+  appVersion: number | null;
 }) {
   // Grouping and labels only need a coarse clock; the countdowns tick on their own (TaskRow, Widgets).
   const now = useNow(30_000) ?? renderedAt;
@@ -90,13 +94,23 @@ export function HomeView({
       </motion.header>
 
       <NotificationPrompt />
-      <GetAppCard apkReady={apkReady} />
+      <GetAppCard apkReady={apkReady} appVersion={appVersion} />
       {nptelAlert && (
         <Link href="/dashboard/settings" className="flex items-center gap-3 rounded-[20px] bg-card p-4 shadow-card ring-1 ring-orange/40">
           <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-orange/15 text-[17px] font-bold text-[#b45309] dark:text-orange">N</span>
           <span className="min-w-0 flex-1">
             <span className="block text-[14px] font-semibold">NPTEL isn’t syncing</span>
             <span className="block text-[13px] leading-snug text-ink-2">{nptelAlert}</span>
+          </span>
+          <ChevronIcon className="size-4 shrink-0 text-ink-3" />
+        </Link>
+      )}
+      {postsAlert && (
+        <Link href="/dashboard/settings" className="flex items-center gap-3 rounded-[20px] bg-card p-4 shadow-card ring-1 ring-orange/40">
+          <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-blue/12 text-[17px] font-bold text-blue">M</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-semibold">Quiz posts aren’t being checked</span>
+            <span className="block text-[13px] leading-snug text-ink-2">{postsAlert}</span>
           </span>
           <ChevronIcon className="size-4 shrink-0 text-ink-3" />
         </Link>
@@ -165,7 +179,7 @@ export function HomeView({
                     <span className={g.id === 'overdue' ? 'text-red' : ''}>{g.label}</span>
                     <span className="font-normal text-ink-3">{list.length}</span>
                   </h3>
-                  <ul>
+                  <ul className="flex flex-col gap-2 pb-3 pt-2">
                     <AnimatePresence initial={false}>
                       {list.map((t) => (
                         <TaskRow key={t.id} task={t} now={now} focused={t.id === focusId} onDone={done} onSnooze={snooze} />

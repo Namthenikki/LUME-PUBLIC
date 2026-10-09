@@ -8,7 +8,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.Collections;
 
 /**
  * An alarm or a reminder is due. First ask Lume (briefly) whether the task is still pending, so a
@@ -29,7 +28,7 @@ public class AlarmReceiver extends BroadcastReceiver {
             return;
         }
         boolean reminder = Reminders.isReminder(alarm);
-        // Quiet hours: alarms don't ring (e.g. a snooze that lands after midnight); reminders still show, silently.
+        // Quiet hours: alarms don't ring; reminders still show, silently.
         if (!reminder && Alarms.isQuietNow()) return;
         PendingResult result = goAsync();
         new Thread(() -> {
@@ -40,11 +39,12 @@ public class AlarmReceiver extends BroadcastReceiver {
                     if (schedule == null) {
                         // Not paired with anyone now (signed out, or alarms stopped): the alarms still set on
                         // this phone belong to whoever used it before, so they're all cleared, none rings.
-                        Alarms.replaceAll(app, new JSONArray(), Collections.emptySet());
+                        Alarms.replaceAll(app, new JSONArray());
                         ring = false;
                     } else {
-                        Alarms.replaceAll(app, schedule.alarms, schedule.pendingTaskIds);
-                        ring = schedule.pendingTaskIds.contains(alarm.optString("taskId"));
+                        Alarms.replaceAll(app, schedule.alarms);
+                        // Done since it was set, or alarms were turned off in Settings since (reminders still show).
+                        ring = schedule.pendingTaskIds.contains(alarm.optString("taskId")) && (reminder || schedule.alarmsOn);
                     }
                 } catch (Exception offline) {
                     // No connection: better to ring for a finished task than miss a deadline.

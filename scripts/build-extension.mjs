@@ -1,4 +1,4 @@
-// Packs extension/ into public/downloads/lume-nptel-extension.zip, the download in Settings → NPTEL,
+// Packs extension/ into public/downloads/lume-nptel-extension.zip, the download in Settings → Lume extension,
 // with Lume's address filled in. Run after changing the extension or the address:
 //   npm run extension:zip -- https://your-lume.vercel.app
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -24,12 +24,12 @@ const files = [];
   }
 })(root);
 
-// Everything sits in a "lume-nptel" folder, so unzipping gives one folder to pick in Load unpacked.
+// Everything sits in a "lume-extension" folder, so unzipping gives one folder to pick in Load unpacked.
 const local = [];
 const central = [];
 let offset = 0;
 for (const path of files) {
-  const name = Buffer.from(`lume-nptel/${relative(root, path).replaceAll('\\', '/')}`);
+  const name = Buffer.from(`lume-extension/${relative(root, path).replaceAll('\\', '/')}`);
   let data = readFileSync(path);
   if (relative(root, path) === 'background.js') {
     data = Buffer.from(data.toString('utf8').replace("export const DEFAULT_LUME_URL = '';", `export const DEFAULT_LUME_URL = '${origin}';`));

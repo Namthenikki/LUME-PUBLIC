@@ -74,8 +74,8 @@ export function sessionCookieOptions(https: boolean) {
 }
 
 /**
- * The key a student's NPTEL Chrome extension sends. It can only post NPTEL deadlines to that
- * student's Lume. Settings shows it as part of the connection code.
+ * The key a student's Lume Chrome extension sends. It can only post NPTEL deadlines and LMS course
+ * posts to that student's Lume. Settings shows it as part of the connection code.
  */
 export function nptelKey(uid: string): string {
   return `${uid}.${sign(`ingest:nptel:v1:${uid}`)}`;

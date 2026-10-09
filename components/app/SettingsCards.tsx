@@ -20,13 +20,13 @@ const STATE_TEXT: Record<PushState, string> = {
   on: 'On. This device gets every reminder.',
 };
 
-function Toggle({ on, busy, onChange }: { on: boolean; busy: boolean; onChange: () => void }) {
+export function Toggle({ on, busy, onChange, label }: { on: boolean; busy: boolean; onChange: () => void; label: string }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label="Notifications on this device"
+      aria-label={label}
       disabled={busy}
       onClick={onChange}
       className={`relative h-[30px] w-[52px] shrink-0 rounded-full transition-colors duration-300 disabled:opacity-60 ${on ? 'bg-blue' : 'bg-chip'}`}
@@ -84,7 +84,7 @@ export function NotificationsCard({ devices, lastCheck }: { devices: number; las
           <p className="font-medium">Reminders on this device</p>
           <p className="text-[13px] text-ink-2">{STATE_TEXT[state]}</p>
         </div>
-        {canToggle && <Toggle on={state === 'on'} busy={busy} onChange={toggle} />}
+        {canToggle && <Toggle on={state === 'on'} busy={busy} onChange={toggle} label="Notifications on this device" />}
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
         <div className="min-w-0 flex-1">

@@ -1,4 +1,4 @@
-import { alarmDeviceUser, isDeviceToken } from '@/lib/alarm-devices';
+import { alarmDeviceUser, alarmsOn, isDeviceToken } from '@/lib/alarm-devices';
 import { actionToken } from '@/lib/auth';
 import { catchUpAfterResponse } from '@/lib/catch-up';
 import { reminderPush } from '@/lib/notify';
@@ -9,7 +9,8 @@ import { listTasksDueAfter } from '@/lib/tasks';
 /**
  * The Android app's schedule: for each pending task due in the next week, the times it should ring
  * (12 hours, 6 hours, 30 minutes and 10 minutes before), plus what it needs to show the alarm and mark
- * the task done from it.
+ * the task done from it. With alarms turned off in Settings there are none, and those stages come
+ * as reminders instead; `alarmsOn` tells the app, so an alarm set before the switch doesn't ring.
  * Apps that send `X-Lume-Reminders: 1` also get every other reminder ("6 hours left", "Due today"...)
  * as `kind: "reminder"`, which they show as a notification at its exact minute; Lume then stops
  * sending those as web pushes to that phone (lib/remind.ts). The paired device token says whose phone it is.
@@ -17,12 +18,15 @@ import { listTasksDueAfter } from '@/lib/tasks';
 export async function GET(request: Request) {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   const withReminders = request.headers.get('x-lume-reminders') === '1';
-  const uid = isDeviceToken(token) ? await alarmDeviceUser(token, withReminders) : null;
+  const version = Number(request.headers.get('x-lume-app'));
+  const appVersion = Number.isSafeInteger(version) && version > 0 ? version : null;
+  const uid = isDeviceToken(token) ? await alarmDeviceUser(token, withReminders, appVersion) : null;
   if (!uid) return new Response('Unauthorized', { status: 401 });
   // The phone checks in every 15 minutes: a chance to catch up on anything the scheduler missed.
   catchUpAfterResponse(uid);
 
   const now = Date.now();
+  const ring = await alarmsOn(uid);
   const alarms = [];
   // Tasks still pending (overdue ones too, for the "Missed" reminder); the app checks this list before
   // it rings or shows anything, so a task marked done since the last sync stays quiet.
@@ -33,7 +37,7 @@ export async function GET(request: Request) {
     if (t.status !== 'pending' || t.dueAt <= now || t.dueAt - now > 7 * 86_400_000) continue;
     // Stages that ring as an alarm; their plain reminder is left out, so nothing shows twice.
     const ringing = new Set<string>();
-    for (const { stage, minutes } of ALARM_STAGES) {
+    for (const { stage, minutes } of ring ? ALARM_STAGES : []) {
       const at = t.dueAt - minutes * 60_000;
       // Snoozed tasks don't ring until the snooze ends, and nothing rings in quiet hours.
       if (at <= now || (t.snoozedUntil && at < t.snoozedUntil) || isQuiet(at)) continue;
@@ -73,5 +77,5 @@ export async function GET(request: Request) {
       alarms.push(reminder(`${t.id}:snooze-end`, t.snoozedUntil, reminderPush(info, [], true, new Date(t.snoozedUntil))));
     }
   }
-  return Response.json({ now, alarms: alarms.sort((a, b) => a.at - b.at), pendingTaskIds }, { headers: { 'cache-control': 'no-store' } });
+  return Response.json({ now, alarmsOn: ring, alarms: alarms.sort((a, b) => a.at - b.at), pendingTaskIds }, { headers: { 'cache-control': 'no-store' } });
 }

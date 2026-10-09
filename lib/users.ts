@@ -19,6 +19,8 @@ export type UserDoc = {
   nextAt: number | null;
   /** Sign-in generation (lib/auth.ts sessionToken). Missing means 0. */
   sessionGen?: number;
+  /** Alarms turned off in Settings: their phones get every reminder as a plain notification instead. */
+  alarmsOff?: boolean;
 };
 
 export const usersCollection = () => db().collection('users');

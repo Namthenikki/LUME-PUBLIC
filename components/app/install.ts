@@ -39,10 +39,12 @@ export function rememberAppVersion(): number | null {
   }
 }
 
-export function useDevice(): Device {
+/** `reported`: the newest version the student's phone reported on its last sync, which wins over a stale launch URL. */
+export function useDevice(reported: number | null = null): Device {
   const [device, setDevice] = useState<Device>({ inAndroidApp: false, android: false, ios: false, standalone: false, appVersion: null, update: null, ready: false });
   useEffect(() => {
-    const appVersion = rememberAppVersion();
+    const remembered = rememberAppVersion();
+    const appVersion = remembered === null && reported === null ? null : Math.max(remembered ?? 0, reported ?? 0);
     let inAndroidApp = document.referrer.startsWith('android-app://');
     try {
       if (inAndroidApp) sessionStorage.setItem(IN_APP_KEY, '1');
@@ -61,7 +63,7 @@ export function useDevice(): Device {
       update: !inAndroidApp || !latest ? null : appVersion === null ? 'download' : appVersion < latest ? 'in-app' : null,
       ready: true,
     });
-  }, []);
+  }, [reported]);
   return device;
 }
 

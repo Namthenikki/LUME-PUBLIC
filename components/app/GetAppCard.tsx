@@ -6,6 +6,7 @@ import androidRelease from '@/lib/android-release.json';
 import { Tile } from '../landing/widgets';
 import { promptInstall, useInstallPrompt } from './AppBoot';
 import { APK_URL, updateLink, useDevice } from './install';
+import { WhatsNew } from './WhatsNew';
 
 const DISMISSED_KEY = 'lume:get-app-dismissed';
 /** Holds the version whose update was dismissed, so the next version asks again. */
@@ -17,8 +18,8 @@ const LATEST = String(androidRelease.versionCode);
  * Lume app (with alarms). On a computer: install the web app, when the browser offers it. Hidden
  * once installed, or after dismissing.
  */
-export function GetAppCard({ apkReady }: { apkReady: boolean }) {
-  const device = useDevice();
+export function GetAppCard({ apkReady, appVersion }: { apkReady: boolean; appVersion: number | null }) {
+  const device = useDevice(appVersion);
   const installPrompt = useInstallPrompt();
   const [dismissed, setDismissed] = useState({ app: true, update: true });
 
@@ -88,6 +89,7 @@ export function GetAppCard({ apkReady }: { apkReady: boolean }) {
                       ? 'On iPhone, reminders only work from the Home Screen. It takes four taps.'
                       : 'Open it from your dock or desktop like a regular app.'}
               </p>
+              {mode === 'update' && <WhatsNew className="mt-3" />}
               {mode === 'android' && (
                 <a href="/help#android" className="mt-1 inline-block text-[13px] font-medium text-blue">
                   How to install it

@@ -1,3 +1,4 @@
+import { LMS } from './lms.js';
 import { courseIdFrom, ORIGIN } from './nptel.js';
 
 const store = chrome.storage.local;
@@ -46,7 +47,7 @@ function parseCode(text) {
 }
 
 async function render() {
-  const { key, courses = [], state, lumeUrl, ownerMismatch } = await store.get(['key', 'courses', 'state', 'lumeUrl', 'ownerMismatch']);
+  const { key, courses = [], state, lmsState, lumeUrl, ownerMismatch } = await store.get(['key', 'courses', 'state', 'lmsState', 'lumeUrl', 'ownerMismatch']);
   app.replaceChildren();
   if (!key) return renderConnect();
 
@@ -54,10 +55,11 @@ async function render() {
 
   // Status
   const syncing = render.syncing;
-  const bad = state && !state.ok && !state.setup;
+  const bad = [state, lmsState].some((s) => s && !s.ok && !s.setup);
+  const allOk = state?.ok && (!lmsState || lmsState.ok);
   pill.hidden = !state && !syncing;
-  pill.className = `pill ${syncing ? 'setup' : state?.ok ? 'ok' : bad ? 'bad' : 'setup'}`;
-  pill.textContent = syncing ? 'Syncing…' : state?.ok ? 'Synced' : bad ? 'Needs attention' : 'Set up';
+  pill.className = `pill ${syncing ? 'setup' : bad ? 'bad' : allOk ? 'ok' : 'setup'}`;
+  pill.textContent = syncing ? 'Syncing…' : bad ? 'Needs attention' : allOk ? 'Synced' : 'Set up';
 
   const upcoming = (state?.items ?? []).filter((i) => Date.parse(i.dueAt) > Date.now());
   const pending = upcoming.filter((i) => !i.submitted);
@@ -81,6 +83,33 @@ async function render() {
   syncBtn.disabled = !!syncing;
   syncBtn.textContent = syncing ? 'Syncing…' : 'Sync now';
   syncBtn.addEventListener('click', syncNow);
+
+  // Quizzes your teachers announced in course posts (Activity Feed, Announcements)
+  const quizzes = (lmsState?.quizzes ?? []).filter((q) => Date.parse(q.dueAt) > Date.now());
+  $('lms-sub').textContent = syncing
+    ? 'Reading your course posts…'
+    : lmsState && !lmsState.setup
+      ? `Checked ${ago(lmsState.at)}. ${quizzes.length ? 'Quizzes found in your course posts:' : 'No upcoming quizzes in your course posts.'}`
+      : 'Not checked yet.';
+  $('lms-quizzes').append(
+    ...quizzes.slice(0, 5).map((q) => {
+      const l = left(q.dueAt);
+      return el(
+        'li',
+        {},
+        el('div', { class: 'grow' }, el('a', { class: 'title', href: q.url, target: '_blank', style: 'color:inherit;text-decoration:none' }, q.title), el('p', { class: 'meta' }, q.course)),
+        el('div', { class: 'when' }, el('b', { class: l.tone }, l.text), `${IST.format(new Date(q.dueAt))}, ${TIME.format(new Date(q.dueAt))}`),
+      );
+    }),
+  );
+  if (lmsState && !lmsState.ok && !lmsState.setup && lmsState.message) {
+    $('lms-error').hidden = false;
+    $('lms-error').textContent = `${lmsState.message.replace(/\.$/, '')}.`;
+  }
+  if (lmsState?.signedOut) {
+    $('lms-login-row').hidden = false;
+    $('lms-login').href = `${LMS}/d2l/home`;
+  }
 
   // Coming up
   if (upcoming.length) {
@@ -146,7 +175,7 @@ function renderConnect() {
     }
     // A different code is a different student's Lume: start clean, so nothing of the last one carries over.
     const { key: previous } = await store.get('key');
-    if (previous !== parsed.key) await store.remove(['owner', 'ownerMismatch', 'courses', 'cache', 'state']);
+    if (previous !== parsed.key) await store.remove(['owner', 'ownerMismatch', 'courses', 'cache', 'state', 'lmsOwner', 'lmsState']);
     await store.set(parsed.lumeUrl ? parsed : { key: parsed.key });
     syncNow();
   });

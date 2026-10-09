@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from './firebase-admin';
+import { userRef } from './users';
 
 /**
  * Phones running the Lume Android app, which rings alarms right before deadlines.
@@ -37,14 +38,35 @@ export async function releaseAlarmDevice(uid: string, token: string): Promise<vo
 
 /**
  * Whose phone this is, or null if it isn't paired. `reminders`: this version of the app shows deadline
- * reminders itself (see phoneShowsReminders).
+ * reminders itself (see phoneShowsReminders). `appVersion`: the version code it reports, for the
+ * update banner (apps from 2026-10-09 on).
  */
-export async function alarmDeviceUser(token: string, reminders = false): Promise<string | null> {
+export async function alarmDeviceUser(token: string, reminders = false, appVersion: number | null = null): Promise<string | null> {
   const ref = devices().doc(idOf(token));
   const doc = await ref.get();
   if (!doc.exists) return null;
-  await ref.update({ lastSeenAt: Timestamp.now(), reminders });
+  await ref.update({ lastSeenAt: Timestamp.now(), reminders, ...(appVersion ? { appVersion } : {}) });
   return doc.get('uid') as string;
+}
+
+/**
+ * The newest app version the student's phones have reported. After an update Android often brings
+ * back the open Lume page without a fresh launch, so the version in its launch URL can be stale; the
+ * phone's next sync (right after the update) reports the new one here.
+ */
+export async function reportedAppVersion(uid: string): Promise<number | null> {
+  const snap = await devices().where('uid', '==', uid).get();
+  const versions = snap.docs.map((d) => d.get('appVersion')).filter((v): v is number => typeof v === 'number');
+  return versions.length ? Math.max(...versions) : null;
+}
+
+/** Whether the student's phones ring alarms. Off, the stages that would ring come as plain notifications. On unless turned off. */
+export async function alarmsOn(uid: string): Promise<boolean> {
+  return (await userRef(uid).get()).get('alarmsOff') !== true;
+}
+
+export async function setAlarmsOn(uid: string, on: boolean): Promise<void> {
+  await userRef(uid).update({ alarmsOff: !on });
 }
 
 /**

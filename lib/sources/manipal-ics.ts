@@ -81,7 +81,7 @@ function itemKey(description: string): string | null {
 const SMALL_WORDS = new Set(['and', 'of', 'the', 'for', 'in', 'on', 'to', 'a', 'an', 'with']);
 
 /** The LMS names courses in capitals ("DATA STRUCTURES AND ALGORITHMS"); show them in title case. */
-function tidyCourse(name: string): string {
+export function tidyCourse(name: string): string {
   if (name !== name.toUpperCase()) return name;
   return name
     .toLowerCase()

@@ -16,6 +16,8 @@ export type Push = {
   test?: boolean;
   /** Leave out the Lume Android app's own browser: the app shows this reminder itself. */
   skipAppDevices?: boolean;
+  /** Where tapping it opens, for notifications that aren't about a task (an announcement). */
+  url?: string;
 };
 
 /*
@@ -63,7 +65,7 @@ export async function pushToUser(uid: string, push: Push): Promise<{ sent: numbe
     title: push.title,
     body: push.body,
     tag: push.taskId ?? `lume-${Date.now()}`,
-    url: push.taskId ? `/dashboard?task=${push.taskId}` : '/dashboard',
+    url: push.taskId ? `/dashboard?task=${push.taskId}` : (push.url ?? '/dashboard'),
     sticky: push.sticky && !quiet ? '1' : '0',
     silent: quiet ? '1' : '0',
   };

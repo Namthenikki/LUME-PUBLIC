@@ -164,22 +164,37 @@ export function Hero() {
               Get the Android app
             </motion.a>
           )}
+          {/* Extensions only run in Chrome on a laptop: there it downloads, on a phone it explains. */}
+          <motion.a
+            href={device.android || device.ios ? '/help#extension' : '/downloads/lume-nptel-extension.zip'}
+            download={device.android || device.ios ? undefined : 'lume-extension.zip'}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-[12px] border border-line bg-white px-6 text-[15px] font-medium shadow-[0_1px_2px_rgb(0_0_0/0.04)]"
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.97 }}
+          >
+            <svg viewBox="0 0 24 24" className="size-[18px] text-blue" aria-hidden>
+              <path
+                d="M10 3.5a2 2 0 0 1 4 0V5h3a2 2 0 0 1 2 2v3h-1.5a2 2 0 0 0 0 4H19v3a2 2 0 0 1-2 2h-3v-1.5a2 2 0 0 0-4 0V19H7a2 2 0 0 1-2-2v-3h1.5a2 2 0 0 0 0-4H5V7a2 2 0 0 1 2-2h3V3.5Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Get the Chrome extension
+          </motion.a>
         </motion.div>
 
-        {/* The NPTEL extension runs in Chrome on a laptop, so phones don't get this line. */}
         <motion.p
-          className="mt-5 hidden max-w-[46ch] text-[14px] text-ink-2 sm:block"
+          className="mt-5 max-w-[46ch] text-[14px] text-ink-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.9, delay: 0.7, ease }}
         >
-          Doing NPTEL?{' '}
-          <a href="/downloads/lume-nptel-extension.zip" download className="font-medium text-blue underline-offset-2 hover:underline">
-            Get the Chrome extension
-          </a>{' '}
-          for your laptop, then{' '}
-          <a href="/help#nptel" className="font-medium text-blue underline-offset-2 hover:underline">
-            follow the setup steps
+          Some quizzes are only posted on the LMS, not in its calendar. The extension catches them, and brings in NPTEL. It runs in Chrome on your laptop and takes
+          3 minutes to{' '}
+          <a href="/help#extension" className="font-medium text-blue underline-offset-2 hover:underline">
+            set up
           </a>
           .
         </motion.p>

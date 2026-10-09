@@ -13,12 +13,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * "Mark done" and "Snooze 10 min" from an alarm (notification or full screen), and "Mark done" and
+ * "Mark done" and "I heard you" from an alarm (notification or full screen), and "Mark done" and
  * "Remind in 2h" from a reminder.
  */
 public class ActionReceiver extends BroadcastReceiver {
     static final String DONE = "app.lume.deadlines.DONE";
-    static final String SNOOZE = "app.lume.deadlines.SNOOZE";
+    static final String HEARD = "app.lume.deadlines.HEARD";
     static final String REMIND_LATER = "app.lume.deadlines.REMIND_LATER";
 
     static Intent intent(Context c, String action, JSONObject alarm) {
@@ -46,10 +46,9 @@ public class ActionReceiver extends BroadcastReceiver {
         Reminders.cancel(app, taskId);
         app.sendBroadcast(new Intent(AlarmActivity.CLOSE).setPackage(app.getPackageName()));
 
-        if (SNOOZE.equals(intent.getAction())) {
-            Alarms.snooze(app, alarm);
-            return;
-        }
+        // "I heard you": this alarm stops, and that's all. The task stays pending, so its later
+        // alarms and reminders still come. (A "Snooze" button from an older version does the same.)
+        if (HEARD.equals(intent.getAction())) return;
         if (REMIND_LATER.equals(intent.getAction())) {
             // Lume snoozes the task for 2 hours; the next sync moves its reminders and alarms.
             PendingResult result = goAsync();

@@ -27,10 +27,13 @@ final class Api {
     static final class Schedule {
         final JSONArray alarms;
         final Set<String> pendingTaskIds;
+        /** False once alarms are turned off in Settings: reminders only, nothing rings. */
+        final boolean alarmsOn;
 
-        Schedule(JSONArray alarms, Set<String> pendingTaskIds) {
+        Schedule(JSONArray alarms, Set<String> pendingTaskIds, boolean alarmsOn) {
             this.alarms = alarms;
             this.pendingTaskIds = pendingTaskIds;
+            this.alarmsOn = alarmsOn;
         }
     }
 
@@ -42,6 +45,8 @@ final class Api {
         con.setRequestProperty("Authorization", "Bearer " + Device.token(c));
         // This app shows reminders itself, so Lume sends them here instead of as web pushes.
         con.setRequestProperty("X-Lume-Reminders", "1");
+        // Lets the web app know the installed version, so "Install update" goes away once it's in.
+        con.setRequestProperty("X-Lume-App", String.valueOf(BuildConfig.VERSION_CODE));
         try {
             int code = con.getResponseCode();
             if (code == 401) return null;
@@ -50,7 +55,7 @@ final class Api {
             JSONArray ids = body.optJSONArray("pendingTaskIds");
             Set<String> pending = new HashSet<>();
             for (int i = 0; ids != null && i < ids.length(); i++) pending.add(ids.getString(i));
-            return new Schedule(body.getJSONArray("alarms"), pending);
+            return new Schedule(body.getJSONArray("alarms"), pending, body.optBoolean("alarmsOn", true));
         } finally {
             con.disconnect();
         }

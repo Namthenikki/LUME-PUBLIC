@@ -22,8 +22,8 @@ export type SyncResult =
   | { source: string; ok: true; inFeed: number; changes: SyncChange[] }
   | { source: string; ok: false; error: string };
 
-/** The last sync of each source, for "Synced 2 min ago" in the app. */
-export type SyncStatus = { at: number; ok: boolean; message: string };
+/** The last sync of each source, for "Synced 2 min ago" in the app. `okAt`: the last one that worked, if this one didn't. */
+export type SyncStatus = { at: number; ok: boolean; message: string; okAt?: number | null };
 
 const DAY = 86_400_000;
 
@@ -64,7 +64,7 @@ export async function syncAllUsers(now = new Date()): Promise<{ users: number; f
     Array.from({ length: 6 }, async () => {
       for (let doc = queue.shift(); doc; doc = queue.shift()) {
         try {
-          const [result] = await runSync(doc.id, [lmsAdapter(doc.data() as UserDoc)], now);
+          const [result] = await runSync(doc.id, [lmsAdapter(doc.id, doc.data() as UserDoc)], now);
           if (!result.ok) failed++;
         } catch (err) {
           failed++;

@@ -1,19 +1,40 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { useTransition } from 'react';
-import { unpairAlarmDevicesAction } from '@/app/dashboard/actions';
+import { useOptimistic, useTransition } from 'react';
+import { setAlarmsOnAction, unpairAlarmDevicesAction } from '@/app/dashboard/actions';
 import { Tile } from '../landing/widgets';
 import { APK_URL, appLink, PHONE_KEY, updateLink, useDevice } from './install';
+import { Toggle } from './SettingsCards';
+import { WhatsNew } from './WhatsNew';
 import { ago, useNow } from './time';
 import { AndroidSteps } from '../guides/AppGuides';
 import { Panel } from './ui';
 
-export function AndroidCard({ phones, apkReady }: { phones: { label: string; lastSeenAt: number }[]; apkReady: boolean }) {
-  const device = useDevice();
+export function AndroidCard({
+  phones,
+  apkReady,
+  alarmsOn,
+  appVersion,
+}: {
+  phones: { label: string; lastSeenAt: number }[];
+  apkReady: boolean;
+  alarmsOn: boolean;
+  appVersion: number | null;
+}) {
+  const device = useDevice(appVersion);
   const inApp = device.inAndroidApp;
   const now = useNow(60_000);
   const [pending, start] = useTransition();
+  const [ringing, setRinging] = useOptimistic(alarmsOn);
+
+  // Saved on the server; inside the app, the phone then syncs right away so it drops or sets its alarms now.
+  const switchAlarms = () =>
+    start(async () => {
+      setRinging(!ringing);
+      await setAlarmsOnAction(!ringing);
+      if (inApp) location.href = appLink('sync', '/dashboard/settings');
+    });
 
   return (
     <Panel title="Android app">
@@ -31,10 +52,22 @@ export function AndroidCard({ phones, apkReady }: { phones: { label: string; las
             {inApp && device.appVersion !== null && !device.update && <span className="rounded-full bg-chip px-2 py-0.5 text-[11px] font-medium text-ink-2">Up to date</span>}
           </p>
           <p className="text-[13px] text-ink-2">
-            Your phone rings like an alarm 12 hours, 6 hours, 30 minutes and 10 minutes before a deadline, until you mark it done or snooze it. On silent it vibrates instead. Never between 12 AM and 8 AM.
+            Your phone rings like an alarm 12 hours, 6 hours, 30 minutes and 10 minutes before a deadline, until you mark it done or tap I heard you. On silent it vibrates instead. Never between 12 AM and 8 AM.
           </p>
         </div>
       </div>
+
+      {!device.ios && (
+        <div className="mt-4 flex items-center gap-4 rounded-[14px] bg-sunken p-3 pl-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-medium">Alarms</p>
+            <p className="text-[13px] text-ink-2">
+              {ringing ? 'On. Your phone rings before each deadline.' : 'Off. Every reminder comes as a normal notification instead, nothing rings.'}
+            </p>
+          </div>
+          <Toggle on={ringing} busy={pending} onChange={switchAlarms} label="Alarms" />
+        </div>
+      )}
 
       {device.ios && (
         <p className="mt-4 rounded-[12px] bg-sunken px-4 py-3 text-[13px] text-ink-2">
@@ -74,6 +107,7 @@ export function AndroidCard({ phones, apkReady }: { phones: { label: string; las
                 ? 'It installs over this one. Your alarms stay set.'
                 : 'This version can’t update itself. Download the new one and open the file to install it over this one.'}
             </p>
+            <WhatsNew className="mt-3" />
           </div>
           <motion.a
             {...updateLink(device.update)}
@@ -108,7 +142,7 @@ export function AndroidCard({ phones, apkReady }: { phones: { label: string; las
         <p className="text-[13px] text-ink-2">
           {phones.length === 0
             ? 'No phone has alarms yet.'
-            : `${phones.length} ${phones.length === 1 ? 'phone rings' : 'phones ring'} alarms${now ? `, last checked in ${ago(Math.max(...phones.map((p) => p.lastSeenAt)), now)}` : ''}.`}
+            : `${phones.length} ${phones.length === 1 ? 'phone gets' : 'phones get'} ${ringing ? 'alarms and reminders' : 'reminders'}${now ? `, last checked in ${ago(Math.max(...phones.map((p) => p.lastSeenAt)), now)}` : ''}.`}
         </p>
         {phones.length > 0 && (
           <button
@@ -127,7 +161,7 @@ export function AndroidCard({ phones, apkReady }: { phones: { label: string; las
             }
             className="h-10 rounded-[12px] border border-line px-4 text-[13px] font-medium text-red disabled:opacity-60"
           >
-            Stop alarms
+            {phones.length === 1 ? 'Unpair phone' : 'Unpair phones'}
           </button>
         )}
       </div>

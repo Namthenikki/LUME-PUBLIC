@@ -310,18 +310,18 @@ export function Features() {
       </Feature>
       <Feature
         className="lg:col-span-5"
-        title="NPTEL too"
-        body="A small Chrome extension on your laptop brings in your NPTEL assignments, next to your LMS deadlines."
+        title="Quiz posts and NPTEL too"
+        body="A small Chrome extension on your laptop catches quizzes your teachers only post on the LMS, and brings in your NPTEL assignments."
         action={
           <>
             <a
               href="/downloads/lume-nptel-extension.zip"
-              download
+              download="lume-extension.zip"
               className="inline-flex h-11 items-center justify-center rounded-[12px] bg-blue px-5 text-[14px] font-medium text-white shadow-[0_10px_24px_-10px_rgb(29_110_245/0.8)]"
             >
               Get the extension
             </a>
-            <a href="/help#nptel" className="inline-flex h-11 items-center justify-center rounded-[12px] border border-line bg-white px-5 text-[14px] font-medium">
+            <a href="/help#extension" className="inline-flex h-11 items-center justify-center rounded-[12px] border border-line bg-white px-5 text-[14px] font-medium">
               How to set it up
             </a>
           </>

@@ -16,6 +16,13 @@
   --color-green: #12b76a;
   --color-red: #f04438;
   --color-sticky: #fde68a;
+  /* Each source's tiles: baby blue for the Manipal LMS, lime yellow for NPTEL. */
+  --color-lms-tile: #e4f3fd;
+  --color-lms-chip: #c4e5fa;
+  --color-lms-ink: #17679b;
+  --color-nptel-tile: #f3f9cf;
+  --color-nptel-chip: #e2f08c;
+  --color-nptel-ink: #586500;
 
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-hand: var(--font-kalam), cursive;
@@ -79,6 +86,12 @@
   --color-ink: #eef1f6;
   --color-ink-2: #9aa3b2;
   --color-ink-3: #667085;
+  --color-lms-tile: #15283a;
+  --color-lms-chip: #1d3d58;
+  --color-lms-ink: #9fd6f7;
+  --color-nptel-tile: #252b10;
+  --color-nptel-chip: #3a4416;
+  --color-nptel-ink: #d6ea72;
   --dot: rgb(255 255 255 / 0.05);
 }
 
@@ -108,6 +121,12 @@ html:has(.app[data-theme='dark']) body {
     --color-ink: #eef1f6;
     --color-ink-2: #9aa3b2;
     --color-ink-3: #667085;
+    --color-lms-tile: #15283a;
+    --color-lms-chip: #1d3d58;
+    --color-lms-ink: #9fd6f7;
+    --color-nptel-tile: #252b10;
+    --color-nptel-chip: #3a4416;
+    --color-nptel-ink: #d6ea72;
     --dot: rgb(255 255 255 / 0.05);
   }
 

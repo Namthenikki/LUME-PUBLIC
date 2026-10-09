@@ -6,7 +6,7 @@ import type { TaskView } from '@/lib/tasks';
 import { dayIST, istDayNumber, timeIST } from '@/lib/time';
 import { CheckIcon, ClockIcon, OpenIcon } from './icons';
 import { timeLeft } from './time';
-import { SourceChip, TypeChip } from './ui';
+import { SOURCE_TILE, SourceChip, TypeChip } from './ui';
 
 const TONE = { calm: 'text-ink-2', soon: 'text-orange', urgent: 'text-red', late: 'text-red' };
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -50,12 +50,12 @@ export const TaskRow = memo(function TaskRow({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, transition: { duration: 0.35, ease } }}
-      className={`relative overflow-hidden border-b border-line last:border-0 ${focused ? 'rounded-[14px]' : ''}`}
+      className={`relative overflow-hidden rounded-[16px] pr-2 ${SOURCE_TILE[task.source]}`}
     >
       {focused && (
         <motion.span
           aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-[14px] bg-blue/8 ring-2 ring-blue/40"
+          className="pointer-events-none absolute inset-0 rounded-[16px] bg-blue/8 ring-2 ring-blue/40"
           initial={{ opacity: 1 }}
           animate={{ opacity: 0 }}
           transition={{ delay: 2.2, duration: 1.2 }}
@@ -65,7 +65,7 @@ export const TaskRow = memo(function TaskRow({
         <button type="button" onClick={tick} aria-label={`Mark ${task.title} done`} className="grid size-11 shrink-0 place-items-center">
           <motion.span
             className="grid size-[22px] place-items-center rounded-full border-2"
-            animate={ticking ? { backgroundColor: '#1d6ef5', borderColor: '#1d6ef5', scale: [1, 1.18, 1] } : { backgroundColor: 'rgba(0,0,0,0)', borderColor: 'var(--color-line)', scale: 1 }}
+            animate={ticking ? { backgroundColor: '#1d6ef5', borderColor: '#1d6ef5', scale: [1, 1.18, 1] } : { backgroundColor: 'rgba(0,0,0,0)', borderColor: 'rgba(120,120,135,0.45)', scale: 1 }}
             transition={{ duration: 0.3 }}
           >
             <motion.span initial={false} animate={{ opacity: ticking ? 1 : 0, scale: ticking ? 1 : 0.5 }} className="text-white">

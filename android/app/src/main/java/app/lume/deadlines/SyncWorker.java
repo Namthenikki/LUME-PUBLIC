@@ -15,7 +15,6 @@ import androidx.work.WorkerParameters;
 
 import org.json.JSONArray;
 
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /** Keeps the phone's alarms in step with Lume: every 15 minutes, and right after the app opens. */
@@ -34,7 +33,7 @@ public class SyncWorker extends Worker {
                 Device.setPaired(c, false);
                 // Not paired with anyone (not approved yet, signed out, or alarms stopped): nothing set on this
                 // phone should ring, since it may be the previous student's.
-                Alarms.replaceAll(c, new JSONArray(), Collections.emptySet());
+                Alarms.replaceAll(c, new JSONArray());
                 // Not approved yet. The owner is probably unlocking Lume right now, so keep checking
                 // every minute for the first 10 minutes after launch instead of waiting for the next 15-minute run.
                 long sinceLaunch = System.currentTimeMillis() - Device.prefs(c).getLong("launched_at", 0);
@@ -45,14 +44,14 @@ public class SyncWorker extends Worker {
                 return Result.success();
             }
             Device.setPaired(c, true);
-            Alarms.replaceAll(c, schedule.alarms, schedule.pendingTaskIds);
+            Alarms.replaceAll(c, schedule.alarms);
             return Result.success();
         } catch (Exception e) {
             return Result.retry();
         }
     }
 
-    /** One sync right away, e.g. after a snooze moved a task's reminders. */
+    /** One sync right away, e.g. after "Remind in 2h" moved a task's reminders. */
     static void syncNow(Context c) {
         Constraints online = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
         WorkManager.getInstance(c).enqueueUniqueWork("lume-alarms-now", ExistingWorkPolicy.REPLACE,

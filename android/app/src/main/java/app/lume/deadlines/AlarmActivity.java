@@ -22,7 +22,7 @@ import org.json.JSONObject;
 
 import java.util.Locale;
 
-/** The full-screen alarm, shown over the lock screen: countdown, Mark done, Snooze. */
+/** The full-screen alarm, shown over the lock screen: countdown, Mark done, I heard you. */
 public class AlarmActivity extends Activity {
     static final String CLOSE = "app.lume.deadlines.CLOSE_ALARM";
 
@@ -46,7 +46,7 @@ public class AlarmActivity extends Activity {
         ContextCompat.registerReceiver(this, closer, new IntentFilter(CLOSE), ContextCompat.RECEIVER_NOT_EXPORTED);
 
         findViewById(R.id.done).setOnClickListener(v -> act(ActionReceiver.DONE));
-        findViewById(R.id.snooze).setOnClickListener(v -> act(ActionReceiver.SNOOZE));
+        findViewById(R.id.heard).setOnClickListener(v -> act(ActionReceiver.HEARD));
         findViewById(R.id.open).setOnClickListener(v -> {
             Alarms.stop(this, alarm.optString("taskId"));
             startActivity(new Intent(this, LumeLauncherActivity.class)
