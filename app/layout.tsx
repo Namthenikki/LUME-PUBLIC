@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Figtree, Kalam } from 'next/font/google';
+import { SiteAnalytics } from '@/components/SiteAnalytics';
 import './globals.css';
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-figtree' });
@@ -20,7 +21,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${figtree.variable} ${kalam.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <SiteAnalytics />
+      </body>
     </html>
   );
 }
