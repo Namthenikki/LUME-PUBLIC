@@ -8,4 +8,16 @@
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:colorAccent">@color/blue</item>
     </style>
+
+    <!-- The launcher: Lume's grey from the very first frame (a transparent theme showed black), with
+         the intro animation drawn on top. -->
+    <style name="Lume.Launch.Base" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/panel</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Lume.Launch" parent="Lume.Launch.Base" />
 </resources>

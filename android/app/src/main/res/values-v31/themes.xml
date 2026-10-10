@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ shows its own splash before the app draws: make it plain grey, so the intro
+         (which starts on an empty screen) takes over without a jump. -->
+    <style name="Lume.Launch" parent="Lume.Launch.Base">
+        <item name="android:windowSplashScreenBackground">@color/panel</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+    </style>
+</resources>

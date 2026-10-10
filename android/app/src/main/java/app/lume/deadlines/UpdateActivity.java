@@ -1,20 +1,23 @@
 package app.lume.deadlines;
 
 import android.app.Activity;
-import android.content.ActivityNotFoundException;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import androidx.core.content.FileProvider;
+import androidx.core.content.IntentCompat;
 import androidx.core.content.pm.PackageInfoCompat;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,11 +26,14 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Updates Lume from inside the app: downloads the latest APK from the site and hands it to Android's
- * installer, which puts it over this one. Same signing key, so the pairing and alarms stay.
- * Opened from "Install update" in the web app (lume://update).
+ * Updates Lume from inside the app: downloads the latest APK from the site and installs it over this
+ * one with Android's PackageInstaller. Same signing key, so the pairing and alarms stay. Android
+ * reports back here when it's done (starting the new version to do so), and Lume reopens by itself
+ * on the new version. Opened from "Install update" in the web app (lume://update).
  */
 public class UpdateActivity extends Activity {
+    static final String INSTALL_STATUS = "app.lume.deadlines.INSTALL_STATUS";
+
     private TextView title;
     private TextView status;
     private TextView action;
@@ -40,6 +46,10 @@ public class UpdateActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (installStatus(getIntent()) == PackageInstaller.STATUS_SUCCESS) {
+            restartLume();
+            return;
+        }
         setContentView(R.layout.activity_update);
         title = findViewById(R.id.title);
         status = findViewById(R.id.status);
@@ -47,7 +57,14 @@ public class UpdateActivity extends Activity {
         close = findViewById(R.id.close);
         progress = findViewById(R.id.progress);
         close.setOnClickListener(v -> finish());
-        begin();
+        if (INSTALL_STATUS.equals(getIntent().getAction())) onInstallStatus(getIntent());
+        else begin();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (INSTALL_STATUS.equals(intent.getAction())) onInstallStatus(intent);
     }
 
     @Override
@@ -125,22 +142,71 @@ public class UpdateActivity extends Activity {
             show("Lume is up to date", "You already have the latest version.", "Back to Lume", v -> backToLume());
             return;
         }
-        show("Update ready", "Tap Install when Android asks. Lume restarts on the new version, with your alarms still set.", "Install", v -> install(apk));
         install(apk);
     }
 
     private void install(File apk) {
-        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
-        try {
-            //noinspection deprecation: still the installer's entry point for a single APK, without a chooser
-            startActivity(new Intent(Intent.ACTION_INSTALL_PACKAGE)
-                    .setDataAndType(uri, "application/vnd.android.package-archive")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
-        } catch (ActivityNotFoundException e) {
-            startActivity(new Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(uri, "application/vnd.android.package-archive")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        show("Installing update", "Lume reopens by itself on the new version, with your alarms still set.", null, null);
+        progress.setIndeterminate(true);
+        progress.setVisibility(View.VISIBLE);
+        new Thread(() -> {
+            try {
+                PackageInstaller installer = getPackageManager().getPackageInstaller();
+                PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+                params.setAppPackageName(getPackageName());
+                // Android asks "Update this app?" until Lume has installed itself once; then it lets updates through.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
+                }
+                int id = installer.createSession(params);
+                try (PackageInstaller.Session session = installer.openSession(id)) {
+                    try (InputStream in = new FileInputStream(apk); OutputStream out = session.openWrite("lume.apk", 0, apk.length())) {
+                        byte[] buffer = new byte[64 * 1024];
+                        for (int n; (n = in.read(buffer)) != -1; ) out.write(buffer, 0, n);
+                        session.fsync(out);
+                    }
+                    // Android reports back by starting this screen: in the new version, once it's installed.
+                    Intent status = new Intent(this, UpdateActivity.class).setAction(INSTALL_STATUS);
+                    session.commit(PendingIntent.getActivity(this, id, status,
+                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE).getIntentSender());
+                }
+            } catch (IOException | RuntimeException e) {
+                runOnUiThread(() -> installFailed(null));
+            }
+        }).start();
+    }
+
+    private static int installStatus(Intent intent) {
+        if (!INSTALL_STATUS.equals(intent.getAction())) return Integer.MIN_VALUE;
+        return intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+    }
+
+    private void onInstallStatus(Intent intent) {
+        int status = installStatus(intent);
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            Intent confirm = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent.class);
+            if (confirm != null) startActivity(confirm);
+            else installFailed(null);
+        } else if (status == PackageInstaller.STATUS_SUCCESS) {
+            restartLume();
+        } else if (status == PackageInstaller.STATUS_FAILURE_ABORTED) {
+            progress.setVisibility(View.GONE);
+            show("Update not installed", "It was cancelled before it finished.", "Try again", v -> begin());
+        } else {
+            installFailed(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
         }
+    }
+
+    private void installFailed(String reason) {
+        progress.setVisibility(View.GONE);
+        show("Couldn't install the update", reason != null ? "Android said: " + reason : "Try again in a moment.", "Try again", v -> begin());
+    }
+
+    /** The new version is in: start Lume afresh, in place of the old page that's still open. */
+    private void restartLume() {
+        startActivity(new Intent(this, LumeLauncherActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+        finish();
     }
 
     private void failed() {
