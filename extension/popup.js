@@ -208,4 +208,15 @@ async function removeCourse(id) {
   syncNow();
 }
 
-render();
+// Opening the popup checks again when a sync failed or is over half an hour old: logging in to the
+// LMS and clicking the icon is enough, no need for Sync now.
+render().then(async () => {
+  const { key, state, lmsState } = await store.get(['key', 'state', 'lmsState']);
+  const stale = (s) => !s || (!s.ok && !s.setup) || Date.now() - s.at > 30 * 60_000;
+  if (key && (stale(state) || stale(lmsState))) syncNow();
+});
+
+// A sync in the background (a visit, the timer) shows up while the popup is open.
+chrome.storage.onChanged.addListener((changes) => {
+  if (!render.syncing && (changes.state || changes.lmsState)) render();
+});

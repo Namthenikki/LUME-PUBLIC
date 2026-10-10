@@ -2,20 +2,23 @@ import { LMS, readLms } from './lms.js';
 import { enrolledCourseFromUrl, ORIGIN, readAll } from './nptel.js';
 
 // Syncs NPTEL deadlines, and the posts in your MUJ LMS courses (for quizzes announced there), to
-// Lume every 3 hours while Chrome is open, when Chrome starts, and when you open one of your NPTEL
-// courses or the LMS. After a failure it tries again sooner.
-const EVERY_MINUTES = 180;
-const RETRY_MINUTES = 20;
-const VISIT_RESYNC_MS = 60 * 60_000;
-const VISIT_RETRY_MS = 2 * 60_000;
+// Lume every hour while Chrome is open, when Chrome starts, and whenever you're on NPTEL or the LMS.
+// After a failure (say you were logged out) it tries again every 10 minutes, and as soon as you
+// open either site again.
+const EVERY_MINUTES = 60;
+const RETRY_MINUTES = 10;
+const VISIT_RESYNC_MS = 30 * 60_000;
+const VISIT_RETRY_MS = 15_000;
 // Lume's address, filled in by scripts/build-extension.mjs (the connection code carries it too).
 export const DEFAULT_LUME_URL = '';
 
 const store = chrome.storage.local;
 const getConfig = async () => ({ lumeUrl: DEFAULT_LUME_URL, key: '', courses: [], ...(await store.get(['lumeUrl', 'key', 'courses'])) });
 
+/** The regular sync timer; replaced when its interval changed in an update, since Chrome keeps the old one. */
 async function ensureAlarm() {
-  if (!(await chrome.alarms.get('sync'))) await chrome.alarms.create('sync', { periodInMinutes: EVERY_MINUTES, delayInMinutes: 1 });
+  const alarm = await chrome.alarms.get('sync');
+  if (alarm?.periodInMinutes !== EVERY_MINUTES) await chrome.alarms.create('sync', { periodInMinutes: EVERY_MINUTES, delayInMinutes: 1 });
 }
 
 chrome.runtime.onInstalled.addListener(() => ensureAlarm().then(() => sync('install')));
@@ -23,15 +26,24 @@ chrome.runtime.onStartup.addListener(() => ensureAlarm().then(() => sync('startu
 chrome.alarms.onAlarm.addListener((a) => (a.name === 'sync' || a.name === 'retry') && sync(a.name));
 ensureAlarm(); // Chrome may drop alarms on a restart; this puts it back whenever the extension wakes
 
-// A visit syncs when the last result is over an hour old, or failed (say you were signed out and
-// have just logged in) more than 2 minutes ago.
+// Being on a site syncs it when the last result is over half an hour old, or failed (you were logged
+// out and have just logged in) more than a few seconds ago.
 const dueOnVisit = (s) => !s || Date.now() - s.at > (s.ok ? VISIT_RESYNC_MS : VISIT_RETRY_MS);
 
-// Any page on NPTEL or the LMS, including moves inside their single-page apps. Opening an NPTEL
-// course you haven't synced before adds it.
-chrome.tabs.onUpdated.addListener(async (_tabId, change, tab) => {
-  if (change.status !== 'complete' && !change.url) return;
-  const url = tab.url ?? '';
+// Any page on NPTEL or the LMS: one that loads, a move inside their single-page apps, switching to
+// its tab, or coming back to Chrome with it open. Opening an NPTEL course you haven't synced before adds it.
+chrome.tabs.onUpdated.addListener((_tabId, change, tab) => {
+  if (change.status === 'complete' || change.url) onSitePage(tab.url ?? '');
+});
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  chrome.tabs.get(tabId).then((tab) => onSitePage(tab.url ?? ''), () => {});
+});
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+  chrome.tabs.query({ active: true, windowId }).then(([tab]) => tab && onSitePage(tab.url ?? ''), () => {});
+});
+
+async function onSitePage(url) {
   if (url.startsWith(`${LMS}/d2l/`) && !url.includes('/d2l/login')) {
     const { lmsState } = await store.get('lmsState');
     if (dueOnVisit(lmsState)) syncLms('visit');
@@ -46,7 +58,7 @@ chrome.tabs.onUpdated.addListener(async (_tabId, change, tab) => {
   }
   const { state } = await store.get('state');
   if (dueOnVisit(state)) syncNptel('visit');
-});
+}
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.type === 'sync') sync('manual').then(reply);

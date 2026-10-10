@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Lume",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Sends your NPTEL deadlines, and quizzes announced in your MUJ LMS course posts, to Lume, so your phone reminds you before each one.",
   "minimum_chrome_version": "116",
   "permissions": ["alarms", "storage", "scripting"],
