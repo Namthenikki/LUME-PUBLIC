@@ -12,7 +12,8 @@ import { pageUser } from '@/lib/session';
 import { listTasks } from '@/lib/tasks';
 import { touchUser } from '@/lib/users';
 
-export const metadata: Metadata = { title: 'Lume' };
+// A student's own deadlines: never in search results.
+export const metadata: Metadata = { title: { absolute: 'Lume' }, robots: { index: false, follow: false } };
 
 export const viewport: Viewport = {
   viewportFit: 'cover',

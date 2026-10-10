@@ -1,5 +1,7 @@
 # Lume for MUJ
 
+**Live at [lume-public.vercel.app](https://lume-public.vercel.app)** · [How to set up](https://lume-public.vercel.app/help) · [Guides](https://lume-public.vercel.app/guides)
+
 Every Manipal LMS deadline in one place, with reminders until it's done. Any MUJ student can use it:
 they paste their LMS calendar link once, and Lume finds their assignments and quizzes, reminds them more
 often as each deadline gets close, and on Android **rings like an alarm** 12 hours, 6 hours, 30 minutes
@@ -14,7 +16,7 @@ Student pastes LMS link ─▶ /start ─▶ users/{uid} (link stored encrypted)
 Scheduler ──(hourly)──▶ /api/sync ──▶ every student's LMS feed ──▶ users/{uid}/tasks
 Scheduler ──(every 5 min)──▶ /api/remind ──▶ students whose next reminder is due ──▶ FCM push
 Android app ──(every 15 min)──▶ /api/alarms ──▶ that student's alarms and reminders, set on the phone
-Chrome extension ──(3-hourly)──▶ /api/ingest/nptel ──▶ that student's NPTEL deadlines
+Chrome extension ──(hourly)──▶ /api/ingest/nptel, /api/ingest/lms ──▶ that student's NPTEL deadlines and quiz posts
 ```
 
 - **Identity.** The link looks like `https://mujlms.manipal.edu/d2l/le/calendar/feed/user/feed.ics?token=…`.
@@ -58,6 +60,7 @@ You need a Firebase project, a Vercel project and this GitHub repo. About 20 min
 | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | From the service account file. Keep the key's `\n`s, in double quotes. |
 | `NEXT_PUBLIC_FIREBASE_API_KEY`, `…_PROJECT_ID`, `…_APP_ID`, `…_MESSAGING_SENDER_ID` | From the web app config. Public by design. |
 | `NEXT_PUBLIC_FIREBASE_VAPID_KEY` | Optional (Cloud Messaging → Web Push certificates). |
+| `GOOGLE_SITE_VERIFICATION` | Optional. Google Search Console's HTML-tag code (only the `content="…"` value), so you can verify the site there. |
 
 ### 3. Deploy
 

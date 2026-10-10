@@ -100,7 +100,17 @@ export function Hero() {
           <AppTile />
         </motion.div>
 
-        <h1 className="mt-9 text-[clamp(2.6rem,7.4vw,5rem)] font-medium leading-[1.02] tracking-[-0.035em]">
+        <motion.p
+          className="mt-8 inline-flex items-center gap-2 rounded-full border border-line bg-white px-3.5 py-1.5 text-[13px] font-medium text-ink-2 shadow-[0_1px_2px_rgb(0_0_0/0.04)]"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 0.15, ease }}
+        >
+          <span className="size-1.5 rounded-full bg-cyan" aria-hidden />
+          Free for Manipal University Jaipur students
+        </motion.p>
+
+        <h1 className="mt-5 text-[clamp(2.6rem,7.4vw,5rem)] font-medium leading-[1.02] tracking-[-0.035em]">
           <motion.span
             className="block"
             initial={{ opacity: 0, y: 24, filter: 'blur(8px)' }}
@@ -125,7 +135,7 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.45, ease }}
         >
-          Assignments and quizzes from your Manipal LMS and NPTEL, with reminders until they&apos;re done.
+          Assignments and quizzes from your MUJ LMS and NPTEL, with reminders until they&apos;re done.
         </motion.p>
 
         <motion.div

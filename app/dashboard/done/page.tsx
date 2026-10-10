@@ -7,7 +7,7 @@ import { pageUser } from '@/lib/session';
 import { listTasks } from '@/lib/tasks';
 import { dayIST, formatIST } from '@/lib/time';
 
-export const metadata = { title: 'Done · Lume' };
+export const metadata = { title: 'Done' };
 
 export default async function DonePage() {
   await connection();

@@ -93,7 +93,7 @@ export function ExtensionSteps({ code }: { code?: string }) {
         </Step>
 
         <Step n={8} title="Log in to the MUJ LMS in that Chrome">
-          Open mujlms.manipal.edu and log in like you always do. That’s how the extension reads your course posts: every 3 hours while Chrome is open, and whenever
+          Open mujlms.manipal.edu and log in like you always do. That’s how the extension reads your course posts: every hour while Chrome is open, and whenever
           you open the LMS.
         </Step>
 

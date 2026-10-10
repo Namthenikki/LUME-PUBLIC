@@ -18,7 +18,7 @@ import { getSyncStatus } from '@/lib/sync';
 import { formatIST } from '@/lib/time';
 import { parseTheme, THEME_COOKIE } from '@/lib/theme';
 
-export const metadata = { title: 'Settings · Lume' };
+export const metadata = { title: 'Settings' };
 
 export default async function SettingsPage() {
   await connection();

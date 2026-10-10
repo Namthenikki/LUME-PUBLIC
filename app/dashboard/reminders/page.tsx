@@ -7,7 +7,7 @@ import { pageUser } from '@/lib/session';
 import { listTasks } from '@/lib/tasks';
 import { dayIST, istDayNumber, timeIST } from '@/lib/time';
 
-export const metadata = { title: 'Reminders · Lume' };
+export const metadata = { title: 'Reminders' };
 
 const URGENT = new Set([...STICKY_STAGES.map((s) => STAGE_LABEL[s as keyof typeof STAGE_LABEL]), STAGE_LABEL.overdue]);
 

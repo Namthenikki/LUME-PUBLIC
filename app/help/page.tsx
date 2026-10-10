@@ -1,13 +1,17 @@
+import type { Metadata } from 'next';
 import { AndroidSteps, IphoneSteps } from '@/components/guides/AppGuides';
 import { ExtensionSteps } from '@/components/guides/ExtensionGuide';
 import { LmsLinkGuide } from '@/components/guides/LmsLinkGuide';
 import { Pill, Step, Steps } from '@/components/guides/Steps';
 import { LumeMark } from '@/components/LumeMark';
+import { SiteFooter } from '@/components/SiteFooter';
 import androidRelease from '@/lib/android-release.json';
 
-export const metadata = {
-  title: 'How to set up · Lume',
-  description: 'Set up Lume in about three minutes: connect your MUJ LMS, get the app, turn on reminders, add the Chrome extension.',
+export const metadata: Metadata = {
+  title: { absolute: 'How to set up Lume: MUJ LMS and NPTEL deadline reminders' },
+  description:
+    'Set up Lume in about three minutes: connect your MUJ LMS calendar link, get the Android or iPhone app, turn on reminders, and add the Chrome extension.',
+  alternates: { canonical: '/help' },
 };
 
 const CONTENTS = [
@@ -144,6 +148,8 @@ export default function HelpPage() {
           <Fix q="Done with Lume">Settings → Your data → Delete my data removes everything, on every device.</Fix>
         </Section>
       </main>
+
+      <SiteFooter className="mt-12 max-w-[760px] px-5" />
     </div>
   );
 }

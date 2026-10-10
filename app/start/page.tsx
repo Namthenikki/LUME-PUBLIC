@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { IphoneTip } from '@/components/guides/IphoneTip';
 import { LmsLinkGuide } from '@/components/guides/LmsLinkGuide';
@@ -5,7 +6,11 @@ import { AlarmTile, AppTile, CheckTile } from '@/components/landing/widgets';
 import { currentUserId } from '@/lib/session';
 import { StartForm } from './StartForm';
 
-export const metadata = { title: 'Connect your LMS · Lume' };
+export const metadata: Metadata = {
+  title: 'Connect your MUJ LMS',
+  description: 'Paste your MUJ LMS calendar link once and Lume reminds you before every assignment and quiz. No account, no password, free.',
+  alternates: { canonical: '/start' },
+};
 
 export default async function StartPage({ searchParams }: PageProps<'/start'>) {
   const { next } = await searchParams;
