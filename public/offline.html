@@ -1,0 +1,570 @@
+<!doctype html>
+<!--
+  Lume's own screen for when a page can't load: no internet, a dropped connection, or a very slow one.
+  The service worker (public/sw.js) shows it in place of the page, at the page's own address, with
+  data-mode set to "offline" or "slow". It opens the page by itself as soon as it arrives.
+  Change OFFLINE_CACHE in sw.js whenever this file changes, so phones fetch the new copy.
+-->
+<html lang="en" data-mode="offline">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Lume</title>
+    <style>
+      @font-face {
+        font-family: Figtree;
+        font-weight: 300 900;
+        font-display: swap;
+        src: url(/fonts/figtree-latin.woff2) format('woff2');
+      }
+
+      :root {
+        --page: #ffffff;
+        --panel: #f3f3f5;
+        --card: #ffffff;
+        --ink: #0e0e11;
+        --ink-2: #62626b;
+        --ink-3: #a3a3ac;
+        --line: #e8e8ec;
+        --chip: #f0f0f3;
+        --blue: #1d6ef5;
+        --cyan: #22c1f1;
+        --dot: rgb(14 14 17 / 0.075);
+        --tile: linear-gradient(180deg, #ffffff 0%, #eeeef2 100%);
+        --shadow-card: 0 1px 2px rgb(14 14 17 / 0.04), 0 14px 34px -14px rgb(14 14 17 / 0.14);
+        --shadow-tile: inset 0 1px 0 #fff, inset 0 -3px 0 rgb(14 14 17 / 0.05), 0 20px 36px -12px rgb(14 14 17 / 0.3),
+          0 4px 10px -4px rgb(14 14 17 / 0.12);
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        color-scheme: light;
+      }
+
+      :root[data-theme='dark'] {
+        --page: #0e1015;
+        --panel: #151922;
+        --card: #181c24;
+        --ink: #eef1f6;
+        --ink-2: #9aa3b2;
+        --ink-3: #667085;
+        --line: #262c37;
+        --chip: #252b36;
+        --dot: rgb(255 255 255 / 0.05);
+        --tile: linear-gradient(180deg, #262c37 0%, #1b2029 100%);
+        --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.05), 0 14px 34px -14px rgb(0 0 0 / 0.7);
+        --shadow-tile: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 20px 36px -12px rgb(0 0 0 / 0.75);
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      html,
+      body {
+        background: var(--page);
+      }
+
+      body {
+        min-height: 100vh;
+        min-height: 100dvh;
+        max-width: 440px;
+        margin: 0 auto;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 12px;
+        color: var(--ink);
+        font-family: Figtree, ui-sans-serif, system-ui, sans-serif;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .hero {
+        padding: 46px 22px 24px;
+        border-radius: 32px;
+        background-color: var(--panel);
+        background-image: radial-gradient(var(--dot) 1px, transparent 1.3px);
+        background-size: 13px 13px;
+        text-align: center;
+        animation: rise 0.6s var(--ease) both;
+      }
+
+      /* The Lume mark on its glossy tile. Its cyan light goes grey while offline and comes back on when connected. */
+      .tile {
+        position: relative;
+        width: 92px;
+        height: 92px;
+        margin: 0 auto 26px;
+        display: grid;
+        place-items: center;
+        border-radius: 26px;
+        background: var(--tile);
+        box-shadow: var(--shadow-tile);
+      }
+
+      .mark {
+        width: 58px;
+        height: 58px;
+        overflow: visible;
+      }
+
+      .ring,
+      .hand,
+      .arc {
+        fill: none;
+        stroke-width: 2.6;
+        stroke-linecap: round;
+        transform-origin: 12px 13.2px;
+      }
+
+      .ring,
+      .hand {
+        stroke: var(--ink);
+        transition: stroke 0.5s;
+      }
+
+      .arc {
+        stroke: var(--blue);
+        stroke-dasharray: 11 39.3;
+        opacity: 0;
+        transition: opacity 0.4s;
+      }
+
+      .dot {
+        fill: var(--cyan);
+        transform-origin: 12px 3.4px;
+        transition: fill 0.5s;
+      }
+
+      [data-mode='offline'] .ring,
+      [data-mode='offline'] .hand,
+      [data-mode='unreachable'] .ring,
+      [data-mode='unreachable'] .hand {
+        stroke: var(--ink-3);
+      }
+
+      [data-mode='offline'] .dot,
+      [data-mode='unreachable'] .dot {
+        fill: var(--ink-3);
+      }
+
+      [data-mode='slow'] .arc {
+        opacity: 1;
+        animation: spin 1.2s linear infinite;
+      }
+
+      [data-mode='slow'] .hand {
+        animation: spin 4s linear infinite;
+      }
+
+      [data-mode='slow'] .dot,
+      .busy .dot {
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+
+      .ok .ring,
+      .ok .hand {
+        stroke: var(--ink);
+      }
+
+      .ok .dot {
+        fill: var(--cyan);
+        animation: none;
+      }
+
+      .badge {
+        position: absolute;
+        right: -9px;
+        bottom: -9px;
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        background: var(--ink);
+        color: var(--page);
+        box-shadow: 0 8px 16px -6px rgb(14 14 17 / 0.45);
+        transform: scale(0);
+        transition: transform 0.45s var(--ease);
+      }
+
+      .badge svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      [data-mode='offline'] .badge,
+      [data-mode='unreachable'] .badge {
+        transform: scale(1);
+      }
+
+      .ok .badge {
+        transform: scale(0);
+      }
+
+      h1 {
+        font-size: clamp(24px, 7vw, 28px);
+        font-weight: 700;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+        text-wrap: balance;
+      }
+
+      h1 .sub {
+        display: block;
+        color: var(--ink-3);
+      }
+
+      .lead {
+        max-width: 30ch;
+        margin: 12px auto 0;
+        color: var(--ink-2);
+        font-size: 15px;
+        text-wrap: balance;
+      }
+
+      .btn {
+        width: 100%;
+        max-width: 280px;
+        height: 50px;
+        margin-top: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--blue);
+        color: #fff;
+        font: inherit;
+        font-size: 16px;
+        font-weight: 600;
+        box-shadow: 0 10px 22px -10px rgb(29 110 245 / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.18);
+        cursor: pointer;
+        transition: transform 0.2s var(--ease), background 0.3s, color 0.3s, box-shadow 0.3s;
+      }
+
+      .btn:active {
+        transform: scale(0.97);
+      }
+
+      .btn:focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 3px;
+      }
+
+      /* While Lume is still loading, trying again is the second choice, so the button steps back. */
+      [data-mode='slow'] .btn {
+        background: var(--card);
+        color: var(--ink);
+        box-shadow: 0 0 0 1px var(--line), 0 6px 14px -8px rgb(14 14 17 / 0.2);
+      }
+
+      .spin {
+        display: none;
+        width: 17px;
+        height: 17px;
+        border: 2.2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .busy .spin {
+        display: block;
+      }
+
+      .busy .btn {
+        pointer-events: none;
+      }
+
+      .status {
+        min-height: 20px;
+        margin-top: 12px;
+        color: var(--ink-3);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tips {
+        padding: 18px 18px 6px;
+        border-radius: 24px;
+        background: var(--card);
+        box-shadow: var(--shadow-card);
+        animation: rise 0.6s 0.08s var(--ease) both;
+      }
+
+      /* Tips only once something is actually wrong: right away when offline, after 20 s when slow. */
+      [data-mode='slow']:not(.late) .tips {
+        display: none;
+      }
+
+      .tips h2 {
+        margin-bottom: 4px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .tips ol {
+        padding: 0;
+        list-style: none;
+      }
+
+      .tips li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 0;
+        color: var(--ink-2);
+        font-size: 13.5px;
+        line-height: 1.35;
+      }
+
+      .tips li + li {
+        border-top: 1px solid var(--line);
+      }
+
+      .tips b {
+        display: block;
+        color: var(--ink);
+        font-size: 14.5px;
+        font-weight: 600;
+      }
+
+      .ic {
+        flex: none;
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border-radius: 11px;
+        background: var(--chip);
+        color: var(--ink);
+      }
+
+      .ic svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes pulse {
+        50% {
+          transform: scale(0.7);
+          opacity: 0.5;
+        }
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="hero">
+      <div class="tile">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="ring" cx="12" cy="13.2" r="8" />
+          <circle class="arc" cx="12" cy="13.2" r="8" />
+          <path class="hand" d="M12 13.2V9.6" />
+          <circle class="dot" cx="12" cy="3.4" r="2.7" />
+        </svg>
+        <span class="badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h.01" />
+            <path d="M8.5 16.43a5 5 0 0 1 7 0" />
+            <path d="M5 12.86a10 10 0 0 1 5.17-2.69" />
+            <path d="M19 12.86a10 10 0 0 0-2-1.52" />
+            <path d="M2 8.82a15 15 0 0 1 4.18-2.64" />
+            <path d="M22 8.82a15 15 0 0 0-11.29-3.76" />
+            <path d="m2 2 20 20" />
+          </svg>
+        </span>
+      </div>
+      <h1><span id="title">You're offline</span> <span id="sub" class="sub">Lume will open when you're back.</span></h1>
+      <p id="lead" class="lead">Turn on Wi-Fi or mobile data.</p>
+      <button id="retry" class="btn" type="button"><span class="spin" aria-hidden="true"></span><span id="retry-label">Try again</span></button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <section class="tips" aria-labelledby="tips-title">
+      <h2 id="tips-title">Still not opening?</h2>
+      <ol>
+        <li>
+          <span class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3 4 7l4 4" />
+              <path d="M4 7h16" />
+              <path d="m16 21 4-4-4-4" />
+              <path d="M20 17H4" />
+            </svg>
+          </span>
+          <span><b>Switch networks</b>Wi-Fi to mobile data, or the other way round. Some Wi-Fi networks block Lume.</span>
+        </li>
+        <li>
+          <span class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+              <path d="m4 4 16 16" />
+            </svg>
+          </span>
+          <span><b>Turn off VPN or Private DNS</b>Ad blockers and DNS apps can stop Lume from loading.</span>
+        </li>
+        <li>
+          <span class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
+            </svg>
+          </span>
+          <span><b>Reset the connection</b>Turn on Airplane mode for 5 seconds, then turn it off.</span>
+        </li>
+      </ol>
+    </section>
+
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const $ = (id) => document.getElementById(id);
+
+        // Same look as the app: the theme picked in Settings (light unless chosen otherwise).
+        const theme = (document.cookie.match(/(?:^|; )lume_theme=(\w+)/) || [])[1];
+        if (theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          root.dataset.theme = 'dark';
+          document.querySelector('meta[name="theme-color"]').content = '#0e1015';
+        }
+
+        // The page Lume was opening: this screen stands in for it at the same address.
+        const here = location.href.split('#')[0];
+        const target = location.pathname === '/offline.html' ? location.origin + '/' : here;
+
+        const COPY = {
+          slow: ['Taking a little longer', 'Your internet seems slow.', 'Lume will open by itself as soon as it loads.'],
+          offline: ["You're offline", "Lume will open when you're back.", 'Turn on Wi-Fi or mobile data.'],
+          unreachable: ["Can't reach Lume", 'The connection dropped.', "This is usually the network, not Lume. It keeps trying by itself."],
+        };
+        const BACKOFF = [3, 5, 10, 15, 30]; // seconds between automatic tries
+        let run = 0; // every check is numbered, so the answer to an older one is ignored
+        let tries = 0;
+        let ticker = 0;
+        let since = Date.now() - 6000; // the worker waited 6 s before showing the slow screen
+
+        function show(mode) {
+          if (mode === 'offline' && navigator.onLine) mode = 'unreachable';
+          root.dataset.mode = mode;
+          const [title, sub, lead] = COPY[mode];
+          $('title').textContent = title;
+          $('sub').textContent = sub;
+          $('lead').textContent = lead;
+        }
+
+        function status(text) {
+          $('status').textContent = text;
+        }
+
+        function every(tick) {
+          clearInterval(ticker);
+          tick();
+          ticker = setInterval(tick, 1000);
+        }
+
+        /** Asks the service worker whether the page has arrived. With retry, it asks the network again. */
+        async function ask(retry) {
+          try {
+            const res = await fetch('/__lume/wait?u=' + encodeURIComponent(target) + (retry ? '&retry=1' : ''), { cache: 'no-store' });
+            return res.headers.get('x-lume-wait') ? (await res.json()).state : 'no-worker';
+          } catch {
+            return 'no-worker';
+          }
+        }
+
+        async function check(retry) {
+          const id = ++run;
+          if (retry) {
+            clearInterval(ticker);
+            since = Date.now();
+            root.classList.add('busy');
+            $('retry-label').textContent = 'Checking…';
+            status('Checking your connection…');
+          }
+          const state = await ask(retry);
+          if (id !== run) return;
+          root.classList.remove('busy');
+          $('retry-label').textContent = 'Try again';
+          if (state === 'ready' || state === 'no-worker') return open();
+          if (state === 'none') return retry ? open() : check(true); // the worker restarted and lost track
+          if (state === 'pending') {
+            show('slow');
+            waiting();
+            return check(false);
+          }
+          show('offline');
+          later();
+        }
+
+        /** Slow: count up while the page keeps loading behind this screen. */
+        function waiting() {
+          every(() => {
+            const seconds = Math.round((Date.now() - since) / 1000);
+            status(`Still loading · ${seconds}s`);
+            root.classList.toggle('late', seconds >= 20);
+          });
+        }
+
+        /** Offline: count down to the next automatic try. */
+        function later() {
+          let left = BACKOFF[Math.min(tries++, BACKOFF.length - 1)];
+          every(() => {
+            if (left <= 0) return check(true);
+            status(`Trying again in ${left}s`);
+            left--;
+          });
+        }
+
+        function open() {
+          clearInterval(ticker);
+          root.classList.add('ok');
+          status('Connected. Opening Lume…');
+          setTimeout(() => (target === here ? location.reload() : location.replace(target)), 350);
+        }
+
+        $('retry').addEventListener('click', () => check(true));
+        addEventListener('online', () => root.dataset.mode !== 'slow' && check(true));
+        addEventListener('offline', () => root.dataset.mode !== 'slow' && show('offline'));
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && root.dataset.mode !== 'slow' && !root.classList.contains('busy')) check(true);
+        });
+
+        show(root.dataset.mode);
+        if (root.dataset.mode === 'slow') {
+          waiting();
+          check(false);
+        } else {
+          later();
+        }
+      })();
+    </script>
+  </body>
+</html>
