@@ -3,13 +3,13 @@
 import { cookies } from 'next/headers';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { isDeviceToken, pairAlarmDevice, releaseAlarmDevice, setAlarmsOn, unpairAllAlarmDevices, unpairOtherPhones } from '@/lib/alarm-devices';
-import { USER_COOKIE } from '@/lib/auth';
+import { isDeviceToken, isPhoneId, pairAlarmDevice, phoneId, releaseAlarmDevice, setAlarmsOn, unpairAllAlarmDevices, unpairOtherPhones } from '@/lib/alarm-devices';
+import { PHONE_COOKIE, USER_COOKIE } from '@/lib/auth';
 import { syncUserIfStale } from '@/lib/catch-up';
 import { parseLmsLink } from '@/lib/lms-link';
 import { pushToUser, removeDevice, removeOtherDevices, saveDevice } from '@/lib/push';
 import { isQuiet } from '@/lib/quiet';
-import { requireUser, setSessionCookie } from '@/lib/session';
+import { currentUserId, requireUser, setSessionCookie } from '@/lib/session';
 import { ManipalIcsAdapter } from '@/lib/sources/manipal-ics';
 import { runSync } from '@/lib/sync';
 import { markDone, markPending, snooze } from '@/lib/tasks';
@@ -19,11 +19,21 @@ import { bumpSessionGen, changeLink, deleteUser, getUser } from '@/lib/users';
 /** This device's own phone token and browser push token, which a sign-out of the other devices keeps. */
 type ThisDevice = { phone?: string | null; push?: string | null };
 
+/**
+ * This browser's phone, as a phoneId: from the token the page keeps (paired here), or from the cookie
+ * left by a phone sign-in (in a browser the page never saw the token in).
+ */
+async function thisPhoneId(token?: string | null): Promise<string | null> {
+  if (isDeviceToken(token)) return phoneId(token);
+  const id = (await cookies()).get(PHONE_COOKIE)?.value;
+  return isPhoneId(id) ? id : null;
+}
+
 /** Everything but this device stops opening, ringing or notifying for the student. */
 async function dropOtherDevices(uid: string, gen: number, device: ThisDevice) {
   const [browsers, phones] = await Promise.all([
     removeOtherDevices(uid, typeof device.push === 'string' ? device.push : null),
-    unpairOtherPhones(uid, isDeviceToken(device.phone) ? device.phone : null),
+    unpairOtherPhones(uid, await thisPhoneId(device.phone)),
   ]);
   await setSessionCookie(uid, gen);
   return { browsers, phones };
@@ -98,7 +108,7 @@ export async function pairAlarmDeviceAction(token: string): Promise<boolean> {
 /** Before signing out on a phone: its alarms stop being this student's. */
 export async function releasePhoneAction(token: string) {
   const uid = await requireUser();
-  if (isDeviceToken(token)) await releaseAlarmDevice(uid, token);
+  if (isDeviceToken(token)) await releaseAlarmDevice(uid, phoneId(token));
 }
 
 export async function unpairAlarmDevicesAction() {
@@ -149,7 +159,13 @@ export async function signOutOtherDevicesAction(device: ThisDevice): Promise<{ b
 
 /** Forgets this browser. The student's Lume stays; pasting the LMS link again opens it. */
 export async function signOutAction() {
-  (await cookies()).delete(USER_COOKIE);
+  const jar = await cookies();
+  // Signed in by a phone: release it too, or the app would sign this browser straight back in.
+  const uid = await currentUserId();
+  const phone = await thisPhoneId();
+  if (uid && phone) await releaseAlarmDevice(uid, phone);
+  jar.delete(USER_COOKIE);
+  jar.delete(PHONE_COOKIE);
   redirect('/');
 }
 
@@ -158,5 +174,6 @@ export async function deleteDataAction() {
   const uid = await requireUser();
   await deleteUser(uid);
   (await cookies()).delete(USER_COOKIE);
+  (await cookies()).delete(PHONE_COOKIE);
   redirect('/?deleted=1');
 }

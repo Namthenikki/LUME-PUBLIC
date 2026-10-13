@@ -68,10 +68,11 @@ export function AppBoot() {
   useEffect(() => {
     const url = new URL(location.href);
     const token = url.searchParams.get('lume_device');
-    if (token || url.searchParams.has('lume_app')) {
+    if (token || url.searchParams.has('lume_app') || url.searchParams.has('lume_signin')) {
       rememberAppVersion();
       url.searchParams.delete('lume_device');
       url.searchParams.delete('lume_app');
+      url.searchParams.delete('lume_signin'); // unused when this browser was already signed in
       history.replaceState(null, '', url.pathname + url.search + url.hash);
     }
     let phone = isPhoneToken(token) ? token : null;

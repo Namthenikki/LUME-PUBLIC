@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { Timestamp } from 'firebase-admin/firestore';
+import { createHash, randomBytes } from 'node:crypto';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from './firebase-admin';
 import { userRef } from './users';
 
@@ -16,6 +16,10 @@ const idOf = (token: string) => createHash('sha256').update(token).digest('hex')
 
 export const isDeviceToken = (t: unknown): t is string => typeof t === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(t);
 
+/** A phone's id: the hash its record is stored under. Not a credential, so it can sit in a cookie. */
+export const phoneId = (token: string) => idOf(token);
+export const isPhoneId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+
 /**
  * Pairs a phone with this student, or moves it to them from whoever had it (a friend signing in on the
  * same phone). Returns false when it was already theirs, so nothing is written.
@@ -29,9 +33,9 @@ export async function pairAlarmDevice(uid: string, token: string, label: string)
   return true;
 }
 
-/** Signing out on a phone: it stops ringing this student's alarms (at its next sync). */
-export async function releaseAlarmDevice(uid: string, token: string): Promise<void> {
-  const ref = devices().doc(idOf(token));
+/** Signing out on a phone: it stops ringing this student's alarms (at its next sync). `id`: phoneId(token). */
+export async function releaseAlarmDevice(uid: string, id: string): Promise<void> {
+  const ref = devices().doc(id);
   const doc = await ref.get();
   if (doc.exists && doc.get('uid') === uid) await ref.delete();
 }
@@ -84,11 +88,10 @@ export async function listAlarmDevices(uid: string): Promise<{ label: string; la
   return snap.docs.map((d) => ({ label: d.get('label') as string, lastSeenAt: (d.get('lastSeenAt') as Timestamp).toMillis() }));
 }
 
-/** Unpairs every phone of the student's except `keepToken` (this one). Returns how many went. */
-export async function unpairOtherPhones(uid: string, keepToken: string | null): Promise<number> {
+/** Unpairs every phone of the student's except `keepId` (this one, a phoneId). Returns how many went. */
+export async function unpairOtherPhones(uid: string, keepId: string | null): Promise<number> {
   const snap = await devices().where('uid', '==', uid).get();
-  const keep = keepToken ? idOf(keepToken) : null;
-  const others = snap.docs.filter((d) => d.id !== keep);
+  const others = snap.docs.filter((d) => d.id !== keepId);
   await Promise.all(others.map((d) => d.ref.delete()));
   return others.length;
 }
@@ -96,4 +99,39 @@ export async function unpairOtherPhones(uid: string, keepToken: string | null): 
 export async function unpairAllAlarmDevices(uid: string): Promise<void> {
   const snap = await devices().where('uid', '==', uid).get();
   await Promise.all(snap.docs.map((d) => d.ref.delete()));
+}
+
+/*
+ * Phone sign-in. The app can open Lume in a browser that has no session yet (another browser than
+ * before, or after clearing data). While its intro plays it trades its device token (sent in a
+ * header, never in a URL) for a one-time code that lasts 2 minutes, and opens Lume with
+ * `?lume_signin=<code>`; /api/signin turns that into the usual session cookie. A phone that was
+ * signed out (released) or unpaired gets no code, so signing out stays signed out.
+ */
+
+const SIGN_IN_CODE_MS = 2 * 60_000;
+
+/** A fresh one-time code for the student this phone is paired with, or null if it isn't paired. */
+export async function createSignInCode(token: string): Promise<string | null> {
+  const ref = devices().doc(idOf(token));
+  if (!(await ref.get()).exists) return null;
+  const code = randomBytes(24).toString('base64url');
+  // Stored on the phone's record, so each new code replaces the last and nothing piles up.
+  await ref.update({ signIn: { code: idOf(code), expiresAt: Timestamp.fromMillis(Date.now() + SIGN_IN_CODE_MS) } });
+  return code;
+}
+
+/** Uses up a sign-in code: the student and phone it was made for, or null if it's unknown, used or expired. */
+export async function redeemSignInCode(code: unknown): Promise<{ uid: string; phone: string } | null> {
+  if (typeof code !== 'string' || !/^[A-Za-z0-9_-]{32}$/.test(code)) return null;
+  const hash = idOf(code);
+  const found = (await devices().where('signIn.code', '==', hash).limit(1).get()).docs[0];
+  if (!found) return null;
+  return db().runTransaction(async (tx) => {
+    const doc = await tx.get(found.ref);
+    const signIn = doc.get('signIn') as { code: string; expiresAt: Timestamp } | undefined;
+    if (!doc.exists || signIn?.code !== hash) return null;
+    tx.update(found.ref, { signIn: FieldValue.delete() });
+    return signIn.expiresAt.toMillis() > Date.now() ? { uid: doc.get('uid') as string, phone: doc.id } : null;
+  });
 }

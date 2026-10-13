@@ -9,6 +9,8 @@ import { requireEnv } from './env';
  */
 
 export const USER_COOKIE = 'lume_user';
+/** Which paired phone this browser was signed in from (a phoneId), so signing out releases it. */
+export const PHONE_COOKIE = 'lume_phone';
 
 function sign(value: string): string {
   return createHmac('sha256', requireEnv('AUTH_SECRET')).update(value).digest('base64url');

@@ -82,6 +82,28 @@ final class Api {
         }
     }
 
+    /**
+     * A one-time code that signs this phone's student in to the browser Lume opens in (it may not have
+     * a session yet), or null if this phone isn't paired or Lume can't be reached in time.
+     */
+    static String signInCode(Context c, int timeoutMs) {
+        try {
+            HttpURLConnection con = (HttpURLConnection) new URL(ORIGIN + "/api/signin-code").openConnection();
+            con.setConnectTimeout(timeoutMs);
+            con.setReadTimeout(timeoutMs);
+            con.setRequestMethod("POST");
+            con.setRequestProperty("Authorization", "Bearer " + Device.token(c));
+            try {
+                if (con.getResponseCode() != 200) return null;
+                return new JSONObject(read(con.getInputStream())).optString("code", null);
+            } finally {
+                con.disconnect();
+            }
+        } catch (IOException | JSONException e) {
+            return null;
+        }
+    }
+
     private static String read(InputStream in) throws IOException {
         try (InputStream stream = in; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192];
