@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useSyncExternalStore } from 'react';
 import { pairAlarmDeviceAction } from '@/app/dashboard/actions';
-import { isPhoneToken, PHONE_KEY, rememberAppVersion } from './install';
+import { ANDROID_PACKAGE, isPhoneToken, PHONE_KEY, rememberAppVersion } from './install';
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -75,7 +75,12 @@ export function AppBoot() {
       url.searchParams.delete('lume_signin'); // unused when this browser was already signed in
       history.replaceState(null, '', url.pathname + url.search + url.hash);
     }
-    let phone = isPhoneToken(token) ? token : null;
+    // Only the Lume app itself may hand over a phone token: its pages open with its own android-app://
+    // referrer. A ?lume_device= link opened anywhere else (a chat, another site) would otherwise pair a
+    // stranger's phone with whoever is signed in here, and that phone could then sign in as them.
+    const app = `android-app://${ANDROID_PACKAGE}`;
+    const fromApp = document.referrer === app || document.referrer.startsWith(`${app}/`);
+    let phone = fromApp && isPhoneToken(token) ? token : null;
     try {
       if (phone) localStorage.setItem(PHONE_KEY, phone);
       else phone = localStorage.getItem(PHONE_KEY);

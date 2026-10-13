@@ -107,6 +107,12 @@ export function AndroidCard({
                 ? 'It installs over this one. Your alarms stay set.'
                 : 'This version can’t update itself. Download the new one and open the file to install it over this one.'}
             </p>
+            {device.update === 'in-app' && (
+              // The in-app install can be blocked on some phones (e.g. Xiaomi); Android's installer always works.
+              <a href={APK_URL} download className="mt-1 inline-block text-[13px] font-medium text-blue">
+                Update not installing? Download it instead
+              </a>
+            )}
             <WhatsNew className="mt-3" />
           </div>
           <motion.a

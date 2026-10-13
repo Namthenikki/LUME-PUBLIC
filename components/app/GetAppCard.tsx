@@ -89,6 +89,12 @@ export function GetAppCard({ apkReady, appVersion }: { apkReady: boolean; appVer
                       ? 'On iPhone, reminders only work from the Home Screen. It takes four taps.'
                       : 'Open it from your dock or desktop like a regular app.'}
               </p>
+              {mode === 'update' && device.update === 'in-app' && (
+                // The in-app install can be blocked on some phones (e.g. Xiaomi); Android's installer always works.
+                <a href={APK_URL} download className="mt-1 inline-block text-[13px] font-medium text-blue">
+                  Update not installing? Download it instead
+                </a>
+              )}
               {mode === 'update' && <WhatsNew className="mt-3" />}
               {mode === 'android' && (
                 <a href="/help#android" className="mt-1 inline-block text-[13px] font-medium text-blue">

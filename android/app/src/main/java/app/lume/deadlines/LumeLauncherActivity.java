@@ -18,6 +18,7 @@ import com.google.androidbrowserhelper.trusted.SessionStore;
 import com.google.androidbrowserhelper.trusted.SharedPreferencesTokenStore;
 import com.google.androidbrowserhelper.trusted.TwaLauncher;
 import com.google.androidbrowserhelper.trusted.TwaProviderPicker;
+import com.google.androidbrowserhelper.trusted.TwaSharedPreferencesManager;
 
 /**
  * Opens Lume full screen (a Trusted Web Activity) and keeps the alarms in sync. The launch URL tells
@@ -36,7 +37,7 @@ public class LumeLauncherActivity extends LauncherActivity {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private IntroView intro;
-    private String browser;
+    private TwaProviderPicker.Action pick;
     private CustomTabsServiceConnection warmUp;
     private boolean introDone;
     private boolean signInDone = true;
@@ -56,7 +57,7 @@ public class LumeLauncherActivity extends LauncherActivity {
             intro = new IntroView(this, this::introFinished);
             setContentView(intro);
             intro.play();
-            if (browser() != null) warmUpBrowser();
+            if (warmUpTarget() != null) warmUpBrowser();
         }
     }
 
@@ -98,7 +99,7 @@ public class LumeLauncherActivity extends LauncherActivity {
             @Override
             public void onServiceDisconnected(ComponentName name) {}
         };
-        if (CustomTabsClient.bindCustomTabsService(this, browser(), connection)) warmUp = connection;
+        if (CustomTabsClient.bindCustomTabsService(this, warmUpTarget(), connection)) warmUp = connection;
     }
 
     /** Only when this starts Lume's task, not when it just passes a link to an open Lume. */
@@ -117,17 +118,35 @@ public class LumeLauncherActivity extends LauncherActivity {
         return new TwaLauncher(this, browser(), SessionStore.makeSessionId(getTaskId()), new SharedPreferencesTokenStore(this));
     }
 
+    /** The browser the TWA library picks by itself (the phone's default, if it can run Lume full screen). */
+    private TwaProviderPicker.Action pick() {
+        if (pick == null) pick = TwaProviderPicker.pickProvider(getPackageManager());
+        return pick;
+    }
+
+    /** Chrome, when the phone's own pick can't show Lume's splash screen (the page then loads on black) and Chrome can. */
+    private String chromeInstead() {
+        boolean twa = pick().launchMode == TwaProviderPicker.LaunchMode.TRUSTED_WEB_ACTIVITY;
+        return (!twa || !showsSplash(pick().provider)) && showsSplash(CHROME) ? CHROME : null;
+    }
+
+    /** The browser to warm up during the intro: the one Lume will most likely open in. */
+    private String warmUpTarget() {
+        String chrome = chromeInstead();
+        if (chrome != null) return chrome;
+        return pick().launchMode == TwaProviderPicker.LaunchMode.TRUSTED_WEB_ACTIVITY ? pick().provider : null;
+    }
+
     /**
-     * The browser Lume runs in: the phone's own pick, unless that browser can't show Lume's splash
-     * screen (the page then loads on black) and Chrome can.
+     * The browser to open Lume in now: null leaves it to the library, as before. Moving to Chrome from
+     * the browser Lume used last time only happens with a sign-in code in hand, so the student arrives
+     * signed in; without one (offline, or this phone isn't paired) Lume stays put and tries next time.
      */
     private String browser() {
-        if (browser == null) {
-            TwaProviderPicker.Action pick = TwaProviderPicker.pickProvider(getPackageManager());
-            boolean twa = pick.launchMode == TwaProviderPicker.LaunchMode.TRUSTED_WEB_ACTIVITY;
-            browser = (!twa || !showsSplash(pick.provider)) && showsSplash(CHROME) ? CHROME : pick.provider;
-        }
-        return browser;
+        String chrome = chromeInstead();
+        String last = new TwaSharedPreferencesManager(this).readLastLaunchedProviderPackageName();
+        boolean moving = chrome != null && last != null && !chrome.equals(last);
+        return moving && signInCode == null ? null : chrome;
     }
 
     private boolean showsSplash(String pkg) {
