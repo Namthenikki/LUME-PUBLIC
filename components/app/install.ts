@@ -6,6 +6,14 @@ import androidRelease from '@/lib/android-release.json';
 const IN_APP_KEY = 'lume:in-android-app';
 const APP_VERSION_KEY = 'lume:app-version';
 
+/**
+ * Inside the Lume Android app: it shows Lume in a WebView whose user agent ends in LumeApp/<version>.
+ * (Older apps opened Lume in a browser instead, with an android-app:// referrer.)
+ */
+export function inLumeApp(): boolean {
+  return /\bLumeApp\/\d+/.test(navigator.userAgent);
+}
+
 export type Device = {
   /** Running inside the Lume Android app (a Trusted Web Activity opens with an android-app:// referrer). */
   inAndroidApp: boolean;
@@ -45,7 +53,7 @@ export function useDevice(reported: number | null = null): Device {
   useEffect(() => {
     const remembered = rememberAppVersion();
     const appVersion = remembered === null && reported === null ? null : Math.max(remembered ?? 0, reported ?? 0);
-    let inAndroidApp = document.referrer.startsWith('android-app://');
+    let inAndroidApp = inLumeApp() || document.referrer.startsWith('android-app://');
     try {
       if (inAndroidApp) sessionStorage.setItem(IN_APP_KEY, '1');
       inAndroidApp = sessionStorage.getItem(IN_APP_KEY) === '1';
@@ -58,7 +66,7 @@ export function useDevice(reported: number | null = null): Device {
       android: /Android/i.test(navigator.userAgent),
       // iPads report themselves as Macs; the touch screen gives them away.
       ios: /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1),
-      standalone: matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true,
+      standalone: matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true || inLumeApp(),
       appVersion,
       update: !inAndroidApp || !latest ? null : appVersion === null ? 'download' : appVersion < latest ? 'in-app' : null,
       ready: true,

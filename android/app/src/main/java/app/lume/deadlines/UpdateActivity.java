@@ -1,8 +1,12 @@
 package app.lume.deadlines;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
@@ -14,6 +18,9 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.content.IntentCompat;
 import androidx.core.content.pm.PackageInfoCompat;
@@ -31,11 +38,17 @@ import java.net.URL;
  * Updates Lume from inside the app: downloads the latest APK from the site and installs it over this
  * one with Android's PackageInstaller. Same signing key, so the pairing and alarms stay. Android
  * reports back here when it's done (starting the new version to do so), and Lume reopens by itself
- * on the new version. Where that install doesn't go through (some phone makers' Android blocks it),
- * Android's own install screen takes over. Opened from "Install update" in the web app (lume://update).
+ * on the new version. Newer Android doesn't let an app reopen itself after an update, so the new
+ * version also posts "Lume is updated, tap to open" (BootReceiver, on MY_PACKAGE_REPLACED). Where the
+ * install doesn't go through (some phone makers' Android blocks it), Android's own install screen
+ * takes over. Opened from "Install update" in the web app (lume://update).
  */
 public class UpdateActivity extends Activity {
     static final String INSTALL_STATUS = "app.lume.deadlines.INSTALL_STATUS";
+    private static final String CHANNEL = "app_updates";
+    private static final int UPDATED_NOTIFICATION = 7301;
+    /** The version an in-app update started from, until the new version has opened. */
+    private static final String UPDATING_FROM = "updating_from";
 
     private TextView title;
     private TextView status;
@@ -49,7 +62,9 @@ public class UpdateActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (installStatus(getIntent()) == PackageInstaller.STATUS_SUCCESS) {
+        // The update went in: either Android reported it, or this screen is being brought back (from the
+        // app icon) in the new version, where it would otherwise start checking for updates again.
+        if (installStatus(getIntent()) == PackageInstaller.STATUS_SUCCESS || justUpdated(this)) {
             restartLume();
             return;
         }
@@ -149,7 +164,8 @@ public class UpdateActivity extends Activity {
     }
 
     private void install(File apk) {
-        show("Installing update", "Lume reopens by itself on the new version, with your alarms still set.", null, null);
+        rememberUpdating();
+        show("Installing update", "When it's done, tap “Lume is updated” to open the new version. Your alarms stay set.", null, null);
         progress.setIndeterminate(true);
         progress.setVisibility(View.VISIBLE);
         new Thread(() -> {
@@ -212,6 +228,7 @@ public class UpdateActivity extends Activity {
             show("Couldn't install the update", "Try again in a moment.", "Try again", v -> begin());
             return;
         }
+        rememberUpdating();
         show("Install the update", "Tap Install when Android asks, then open Lume again. Your alarms stay set.", "Install", v -> installClassic());
         Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
         try {
@@ -228,9 +245,57 @@ public class UpdateActivity extends Activity {
 
     /** The new version is in: start Lume afresh, in place of the old page that's still open. */
     private void restartLume() {
-        startActivity(new Intent(this, LumeLauncherActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+        startActivity(openLume(this));
         finish();
+    }
+
+    private static Intent openLume(Context c) {
+        return new Intent(c, LumeLauncherActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+    }
+
+    private void rememberUpdating() {
+        Device.prefs(this).edit().putLong(UPDATING_FROM, BuildConfig.VERSION_CODE).apply();
+    }
+
+    /** An in-app update started from an older version, and this is the new one. */
+    private static boolean justUpdated(Context c) {
+        long from = Device.prefs(c).getLong(UPDATING_FROM, Long.MAX_VALUE);
+        return from < BuildConfig.VERSION_CODE;
+    }
+
+    /** Lume has opened: the update is done with. Called from LumeLauncherActivity. */
+    static void opened(Context c) {
+        Device.prefs(c).edit().remove(UPDATING_FROM).apply();
+        NotificationManagerCompat.from(c).cancel(UPDATED_NOTIFICATION);
+    }
+
+    /**
+     * The new version is installed (MY_PACKAGE_REPLACED), from inside Lume or from a downloaded APK.
+     * Android doesn't let it open itself, so it asks to be opened: one tap starts it afresh.
+     */
+    static void notifyUpdated(Context c) {
+        NotificationManager nm = c.getSystemService(NotificationManager.class);
+        if (nm.getNotificationChannel(CHANNEL) == null) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL, c.getString(R.string.update_channel), NotificationManager.IMPORTANCE_HIGH);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            nm.createNotificationChannel(channel);
+        }
+        PendingIntent open = PendingIntent.getActivity(c, UPDATED_NOTIFICATION, openLume(c),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification n = new NotificationCompat.Builder(c, CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_lume)
+                .setColor(ContextCompat.getColor(c, R.color.blue))
+                .setContentTitle("Lume is updated")
+                .setContentText("Tap to open the new version.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build();
+        try {
+            NotificationManagerCompat.from(c).notify(UPDATED_NOTIFICATION, n);
+        } catch (SecurityException ignored) {
+            // notifications not allowed: opening Lume from its icon works too
+        }
     }
 
     private void failed() {

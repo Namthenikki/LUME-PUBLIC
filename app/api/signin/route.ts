@@ -12,8 +12,11 @@ import { getUser } from '@/lib/users';
 export async function GET(request: NextRequest) {
   const url = request.nextUrl;
   const next = url.searchParams.get('next') ?? '';
-  const response = NextResponse.redirect(new URL(next.startsWith('/dashboard') ? next : '/dashboard', url));
-  response.headers.set('cache-control', 'no-store');
+  // A relative Location: the browser stays on the address it came in on, whatever host the server sees.
+  const response = new NextResponse(null, {
+    status: 307,
+    headers: { location: next.startsWith('/dashboard') ? next : '/dashboard', 'cache-control': 'no-store' },
+  });
   if (await sessionUser(request.cookies.get(USER_COOKIE)?.value)) return response;
   const found = await redeemSignInCode(url.searchParams.get('code'));
   const user = found && (await getUser(found.uid));

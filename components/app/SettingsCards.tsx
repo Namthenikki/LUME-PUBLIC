@@ -6,6 +6,7 @@ import { sendTestAction, setThemeAction } from '@/app/dashboard/actions';
 import type { Theme } from '@/lib/theme';
 import { Tile } from '../landing/widgets';
 import { promptInstall, useInstallPrompt } from './AppBoot';
+import { inLumeApp } from './install';
 import { BellIcon } from './icons';
 import { disablePush, enablePush, type PushState, pushState } from './push-client';
 import { ago, useNow } from './time';
@@ -45,8 +46,10 @@ export function NotificationsCard({ devices, lastCheck }: { devices: number; las
   const [state, setState] = useState<PushState>('loading');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [inApp, setInApp] = useState(false);
 
   useEffect(() => {
+    setInApp(inLumeApp());
     pushState().then(setState);
   }, []);
 
@@ -82,7 +85,8 @@ export function NotificationsCard({ devices, lastCheck }: { devices: number; las
         </Tile>
         <div className="min-w-0 flex-1">
           <p className="font-medium">Reminders on this device</p>
-          <p className="text-[13px] text-ink-2">{STATE_TEXT[state]}</p>
+          <p className="text-[13px] text-ink-2">{/* The app's WebView can't take web push; the app itself shows every reminder and alarm. */}
+            {inApp && state === 'unsupported' ? 'This phone gets every reminder and alarm from the Lume app.' : STATE_TEXT[state]}</p>
         </div>
         {canToggle && <Toggle on={state === 'on'} busy={busy} onChange={toggle} label="Notifications on this device" />}
       </div>
@@ -160,7 +164,7 @@ export function InstallCard() {
   const [ios, setIos] = useState(false);
 
   useEffect(() => {
-    setInstalled(matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true);
+    setInstalled(matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true || inLumeApp());
     setIos(/iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1));
   }, []);
 

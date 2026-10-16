@@ -26,7 +26,7 @@ android {
         versionName = (project.findProperty('lume.versionName') ?: 'dev').toString()
 
         buildConfigField 'String', 'LUME_ORIGIN', "\"${origin}\""
-        manifestPlaceholders = [lumeHost: host, lumeStartUrl: "${origin}/dashboard".toString()]
+        manifestPlaceholders = [lumeHost: host]
         // Digital Asset Links: lets the app open the site full screen, with no browser bar.
         resValue 'string', 'asset_statements',
             "[{\\\"relation\\\": [\\\"delegate_permission/common.handle_all_urls\\\"], \\\"target\\\": {\\\"namespace\\\": \\\"web\\\", \\\"site\\\": \\\"${origin}\\\"}}]"
@@ -62,7 +62,6 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
     implementation 'androidx.work:work-runtime:2.12.0'
     implementation 'androidx.core:core:1.19.1'
 }
