@@ -84,7 +84,7 @@ export function GetAppCard({ apkReady, appVersion }: { apkReady: boolean; appVer
                     ? 'A new version is ready. It installs over this one, and your alarms stay set.'
                     : 'A new version is ready. This one can’t update itself: download it and open the file to install it over this one.'
                   : mode === 'android'
-                    ? 'It rings like an alarm 12 hours, 6 hours, 30 minutes and 10 minutes before a deadline.'
+                    ? 'It rings like an alarm 12 hours, 6 hours, 30 minutes and 10 minutes before a deadline, or before a timed quiz starts.'
                     : mode === 'ios'
                       ? 'On iPhone, reminders only work from the Home Screen. It takes four taps.'
                       : 'Open it from your dock or desktop like a regular app.'}

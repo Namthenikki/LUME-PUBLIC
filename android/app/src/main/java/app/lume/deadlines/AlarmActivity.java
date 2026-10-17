@@ -82,7 +82,12 @@ public class AlarmActivity extends Activity {
         }
         ((TextView) findViewById(R.id.title)).setText(alarm.optString("title"));
         ((TextView) findViewById(R.id.course)).setText(alarm.optString("course"));
-        ((TextView) findViewById(R.id.due)).setText("Due " + Alarms.timeIST(alarm.optLong("dueAt")));
+        // A quiz sitting counts down to its start (dueAt) and shows its window.
+        long closesAt = alarm.optLong("closesAt");
+        ((TextView) findViewById(R.id.heading)).setText(closesAt > 0 ? "Quiz starts in" : "Deadline alarm");
+        ((TextView) findViewById(R.id.due)).setText(closesAt > 0
+                ? Alarms.windowIST(alarm.optLong("dueAt"), closesAt)
+                : "Due " + Alarms.timeIST(alarm.optLong("dueAt")));
         tick.removeCallbacksAndMessages(null);
         tick.post(new Runnable() {
             @Override

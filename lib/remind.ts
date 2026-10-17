@@ -2,7 +2,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { phoneShowsReminders } from './alarm-devices';
 import { reminderPush } from './notify';
 import { pushToUser } from './push';
-import { nextReminderAt, type Stage, stageTimes } from './stages';
+import { nextReminderAt, stageTimes } from './stages';
 import { type TaskDoc, tasksCollection } from './tasks';
 import { userRef, usersCollection } from './users';
 
@@ -28,27 +28,28 @@ async function remindUser(uid: string, now: Date): Promise<number> {
   const snap = await tasksCollection(uid).where('status', '==', 'pending').get();
   // The Android app shows these at their exact minute itself (app/api/alarms), so its browser is skipped.
   const skipAppDevices = await phoneShowsReminders(uid);
-  const after: { dueAt: number; notifiedStages: Stage[]; snoozedUntil: number | null }[] = [];
+  const after: Parameters<typeof nextReminderAt>[0] = [];
   let sent = 0;
 
   for (const doc of snap.docs) {
     const t = doc.data() as TaskDoc;
     const snoozedUntil = t.snoozedUntil?.toDate();
-    const dueAt = t.dueAt.toDate();
+    const info = { id: doc.id, course: t.course, title: t.title, type: t.type, dueAt: t.dueAt.toDate(), opensAt: t.opensAt?.toDate() ?? null };
+    const timing = { type: t.type, dueAt: t.dueAt.toMillis(), opensAt: t.opensAt?.toMillis() ?? null };
     if (snoozedUntil && snoozedUntil > now) {
-      after.push({ dueAt: dueAt.getTime(), notifiedStages: t.notifiedStages, snoozedUntil: snoozedUntil.getTime() });
+      after.push({ ...timing, notifiedStages: t.notifiedStages, snoozedUntil: snoozedUntil.getTime() });
       continue;
     }
 
-    const due = stageTimes(dueAt)
+    const due = stageTimes(info)
       .filter(([stage, at]) => at <= now && !t.notifiedStages.includes(stage))
       .map(([stage]) => stage);
     const snoozeEnded = !!snoozedUntil;
     const notifiedStages = [...t.notifiedStages, ...due];
-    after.push({ dueAt: dueAt.getTime(), notifiedStages, snoozedUntil: null });
+    after.push({ ...timing, notifiedStages, snoozedUntil: null });
     if (due.length === 0 && !snoozeEnded) continue;
 
-    const push = reminderPush({ id: doc.id, course: t.course, title: t.title, type: t.type, dueAt }, due, snoozeEnded, now);
+    const push = reminderPush(info, due, snoozeEnded, now);
     await pushToUser(uid, { ...push, skipAppDevices });
     await doc.ref.update({ notifiedStages, snoozedUntil: null, updatedAt: Timestamp.fromDate(now) });
     sent++;

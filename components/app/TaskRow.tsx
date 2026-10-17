@@ -2,8 +2,9 @@
 
 import { AnimatePresence, motion } from 'motion/react';
 import { memo, useEffect, useRef, useState } from 'react';
+import { countdownTo, sittingStart } from '@/lib/stages';
 import type { TaskView } from '@/lib/tasks';
-import { dayIST, istDayNumber, timeIST } from '@/lib/time';
+import { dayIST, formatIST, istDayNumber, rangeIST, timeIST } from '@/lib/time';
 import { CheckIcon, ClockIcon, OpenIcon } from './icons';
 import { timeLeft } from './time';
 import { SOURCE_TILE, SourceChip, TypeChip } from './ui';
@@ -29,7 +30,10 @@ export const TaskRow = memo(function TaskRow({
   const ref = useRef<HTMLLIElement>(null);
   const sameDay = istDayNumber(task.dueAt) === istDayNumber(now);
   const snoozed = task.snoozedUntil && task.snoozedUntil > now;
-  const opensLater = task.type === 'quiz' && task.opensAt && task.opensAt > now;
+  // A quiz sitting (8:00 to 8:30 PM) counts down to its start and shows its window; a longer quiz says when it opens.
+  const start = sittingStart(task);
+  const openNow = start !== null && start <= now && now < task.dueAt;
+  const opensLater = start === null && task.type === 'quiz' && task.opensAt && task.opensAt > now;
 
   // Arriving from a notification: bring this task into view.
   useEffect(() => {
@@ -84,13 +88,18 @@ export const TaskRow = memo(function TaskRow({
             <TypeChip type={task.type} />
             <SourceChip source={task.source} />
             {snoozed && <span className="rounded-full bg-chip px-2 py-0.5 text-[11px] text-ink-2">Snoozed till {timeIST(task.snoozedUntil!)}</span>}
-            {opensLater && <span className="rounded-full bg-chip px-2 py-0.5 text-[11px] text-ink-2">Opens {timeIST(task.opensAt!)}</span>}
+            {opensLater && (
+              <span className="rounded-full bg-chip px-2 py-0.5 text-[11px] text-ink-2">
+                Opens {istDayNumber(task.opensAt!) === istDayNumber(now) ? timeIST(task.opensAt!) : formatIST(task.opensAt!)}
+              </span>
+            )}
+            {openNow && <span className="rounded-full bg-green/12 px-2 py-0.5 text-[11px] font-medium text-green">Open now</span>}
           </span>
         </button>
 
         <div className="shrink-0 py-1.5 pr-1 text-right">
-          <TimeLeft dueAt={task.dueAt} renderedAt={now} />
-          <p className="text-[12px] text-ink-3">{timeIST(task.dueAt)}</p>
+          <TimeLeft task={task} renderedAt={now} />
+          <p className="text-[12px] text-ink-3">{start === null ? timeIST(task.dueAt) : rangeIST(start, task.dueAt)}</p>
           {!sameDay && <p className="text-[12px] text-ink-3">{dayIST(task.dueAt)}</p>}
         </div>
       </div>
@@ -130,19 +139,20 @@ export const TaskRow = memo(function TaskRow({
   );
 });
 
-/** Time left, ticking every second in the last hour and every 30 seconds before that. */
-function TimeLeft({ dueAt, renderedAt }: { dueAt: number; renderedAt: number }) {
+/** Time left (to a quiz sitting's start, then its close), ticking every second in the last hour and every 30 seconds before that. */
+function TimeLeft({ task, renderedAt }: { task: TaskView; renderedAt: number }) {
   const [now, setNow] = useState(renderedAt);
+  const { type, dueAt, opensAt } = task;
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const tick = () => {
       const n = Date.now();
       setNow(n);
-      timer = setTimeout(tick, Math.abs(dueAt - n) < 3_600_000 ? 1000 : 30_000);
+      timer = setTimeout(tick, Math.abs(countdownTo({ type, dueAt, opensAt }, n) - n) < 3_600_000 ? 1000 : 30_000);
     };
     tick();
     return () => clearTimeout(timer);
-  }, [dueAt]);
-  const left = timeLeft(dueAt, now);
+  }, [type, dueAt, opensAt]);
+  const left = timeLeft(countdownTo(task, now), now);
   return <p className={`text-[13px] font-semibold tabular-nums ${TONE[left.tone]}`}>{left.text}</p>;
 }

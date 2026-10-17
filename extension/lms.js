@@ -1,6 +1,7 @@
-// Reads the posts in your MUJ LMS courses (each course's Activity Feed and Announcements): the same
-// calls the course home page makes, sent with the Chrome session you're already signed in with.
-// Lume looks for quiz announcements in them. Nothing here logs in or stores a password.
+// Reads the posts in your MUJ LMS courses (each course's Activity Feed and Announcements) and their
+// quizzes: the same calls the course pages make, sent with the Chrome session you're already signed
+// in with. Lume looks for quiz announcements in the posts, takes each quiz's real start and end, and
+// ticks a quiz done once you've attempted it. Nothing here logs in or stores a password.
 
 export const LMS = 'https://mujlms.manipal.edu';
 const FEED = 'https://prd.activityfeed.ap-south-1.brightspace.com/api/v1';
@@ -105,9 +106,77 @@ async function coursePosts(course, token, get) {
   return posts.filter((p) => p.publishedAt && !Number.isNaN(Date.parse(p.publishedAt)));
 }
 
+const tagless = (html) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/\s+/g, ' ').trim();
+
 /**
- * Every current course's posts. A course that fails is reported and the rest still go; being
- * signed out stops the whole run, since every course would fail the same way.
+ * The course's Quizzes page, which lists only the quizzes you can see: your attempts at each (its
+ * Attempts column reads "1 / 1", attempts made / allowed), keyed by quiz id, and whether a quiz is
+ * on the page at all. A quiz that hasn't opened yet may have no link, so it's also found by its
+ * name. The page is plain HTML, read with patterns since the extension's background has no HTML parser.
+ */
+function readQuizzesPage(html) {
+  const attempts = {};
+  const ids = new Set();
+  const names = [];
+  for (const row of html.split(/<tr[\s>]/i).slice(1)) {
+    const body = row.split(/<\/tr>/i)[0];
+    const cells = [...body.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)];
+    if (cells.length === 0) continue; // a heading row
+    names.push(tagless(cells[0][1]));
+    const id = /GoToQuiz\((\d+)/.exec(body)?.[1] ?? /[?&;]qi=(\d+)/.exec(body)?.[1];
+    if (!id) continue;
+    ids.add(id);
+    const made = /^(\d+)\s*\//.exec(tagless(cells.at(-1)[1]))?.[1];
+    if (made !== undefined) attempts[id] = Number(made);
+  }
+  const listed = (id, name) => ids.has(id) || (name !== '' && names.some((n) => n.startsWith(name)));
+  return { attempts, listed };
+}
+
+/**
+ * A course's quizzes in the Quizzes tool: when each opens and closes (the calendar often leaves the
+ * start out), and how many times you've attempted it, so Lume can tick it done.
+ */
+async function courseQuizzes(course, get) {
+  const list = [];
+  let url = `${LMS}/d2l/api/le/${LE}/${course.id}/quizzes/`;
+  for (let page = 0; url && page < 5; page++) {
+    const r = await get(url);
+    if (r.status === 403 || r.status === 404) return []; // the course has no Quizzes tool
+    const j = json(r.text);
+    if (r.status !== 200 || !Array.isArray(j?.Objects)) throw isLogin(r) ? new LmsSignedOut() : new Error(`the Quizzes tool answered ${r.status}`);
+    list.push(...j.Objects);
+    url = typeof j.Next === 'string' && j.Next.startsWith(LMS) ? j.Next : null;
+  }
+  if (list.length === 0) return [];
+
+  const page = await get(`${LMS}/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${course.id}`);
+  if (isLogin(page)) throw new LmsSignedOut();
+  // Without the page, attempts and what you can see are unknown (null), not "none".
+  const seen = page.status === 200 ? readQuizzesPage(page.text) : null;
+  return list
+    .filter((q) => Number.isSafeInteger(q?.QuizId))
+    .map((q) => {
+      const id = String(q.QuizId);
+      const name = String(q.Name ?? '').trim().slice(0, 300);
+      return {
+        courseId: course.id,
+        id,
+        name,
+        active: q.IsActive !== false,
+        startsAt: q.StartDate ?? null,
+        endsAt: q.EndDate ?? null,
+        dueAt: q.DueDate ?? null,
+        attempts: seen?.attempts[id] ?? null,
+        listed: seen ? seen.listed(id, name) : null,
+      };
+    });
+}
+
+/**
+ * Every current course's posts and quizzes. A course that fails is reported and the rest still go;
+ * a course whose quizzes fail still sends its posts (`quizzesError` says why). Being signed out
+ * stops the whole run, since every course would fail the same way.
  */
 export async function readLms({ get = request, now = Date.now() } = {}) {
   try {
@@ -116,18 +185,26 @@ export async function readLms({ get = request, now = Date.now() } = {}) {
     const who = me?.Identifier ? { id: String(me.Identifier), name: `${me.FirstName ?? ''} ${me.LastName ?? ''}`.trim() || 'another student' } : null;
     const courses = [];
     const posts = [];
+    const quizzes = [];
     for (const course of await myCourses(get, now)) {
       try {
         posts.push(...(await coursePosts(course, token, get)));
-        courses.push({ ...course, ok: true });
+        let quizzesError;
+        try {
+          quizzes.push(...(await courseQuizzes(course, get)));
+        } catch (err) {
+          if (err instanceof LmsSignedOut) throw err;
+          quizzesError = describe(err);
+        }
+        courses.push({ ...course, ok: true, ...(quizzesError ? { quizzesError } : {}) });
       } catch (err) {
         if (err instanceof LmsSignedOut) throw err;
         courses.push({ ...course, ok: false, error: describe(err) });
       }
     }
-    return { who, courses, posts };
+    return { who, courses, posts, quizzes };
   } catch (err) {
-    return { error: describe(err), signedOut: err instanceof LmsSignedOut, courses: [], posts: [] };
+    return { error: describe(err), signedOut: err instanceof LmsSignedOut, courses: [], posts: [], quizzes: [] };
   }
 }
 

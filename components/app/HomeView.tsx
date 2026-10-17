@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useOptimistic, useState, useTransition } from 'react';
 import { markDoneAction, snoozeAction, undoDoneAction } from '@/app/dashboard/actions';
 import type { Source } from '@/lib/sources/types';
+import { countdownTo, remindAt } from '@/lib/stages';
 import type { TaskView } from '@/lib/tasks';
 import { dayIST, istDayNumber } from '@/lib/time';
 import { CheckTile } from '../landing/widgets';
@@ -26,9 +27,9 @@ const GROUPS: { id: Group; label: string; dot: string }[] = [
   { id: 'later', label: 'Later', dot: 'bg-ink-3' },
 ];
 
-function groupOf(dueAt: number, now: number): Group {
-  if (dueAt < now) return 'overdue';
-  const days = istDayNumber(dueAt) - istDayNumber(now);
+function groupOf(t: TaskView, now: number): Group {
+  if (t.dueAt < now) return 'overdue';
+  const days = istDayNumber(remindAt(t)) - istDayNumber(now);
   return days === 0 ? 'today' : days === 1 ? 'tomorrow' : days < 7 ? 'week' : 'later';
 }
 
@@ -73,13 +74,14 @@ export function HomeView({
 
   const sources = [...new Set(items.map((t) => t.source))];
   const shown = items.filter((t) => source === 'all' || t.source === source);
-  const pending = shown.filter((t) => t.status === 'pending');
+  // Soonest first by what each counts down to, so an 8:00 PM quiz comes before an 8:15 PM deadline.
+  const pending = shown.filter((t) => t.status === 'pending').sort((a, b) => remindAt(a) - remindAt(b));
   const finished = shown.filter((t) => t.status === 'done').sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
-  const next = items.find((t) => t.status === 'pending' && t.dueAt > now);
+  const next = items.filter((t) => t.status === 'pending' && t.dueAt > now).sort((a, b) => remindAt(a) - remindAt(b))[0];
   const overdue = pending.filter((t) => t.dueAt < now).length;
 
   const summary = pending.length
-    ? `${pending.length} ${pending.length === 1 ? 'deadline' : 'deadlines'} pending${overdue ? `, ${overdue} overdue` : ''}.${next ? ` Next one in ${timeLeft(next.dueAt, now).text}.` : ''}`
+    ? `${pending.length} ${pending.length === 1 ? 'deadline' : 'deadlines'} pending${overdue ? `, ${overdue} overdue` : ''}.${next ? ` Next one in ${timeLeft(countdownTo(next, now), now).text}.` : ''}`
     : 'Nothing pending. Enjoy the quiet.';
 
   return (
@@ -109,7 +111,7 @@ export function HomeView({
         <Link href="/dashboard/settings" className="flex items-center gap-3 rounded-[20px] bg-card p-4 shadow-card ring-1 ring-orange/40">
           <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-blue/12 text-[17px] font-bold text-blue">M</span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-semibold">Quiz posts aren’t being checked</span>
+            <span className="block text-[14px] font-semibold">LMS quizzes need a look</span>
             <span className="block text-[13px] leading-snug text-ink-2">{postsAlert}</span>
           </span>
           <ChevronIcon className="size-4 shrink-0 text-ink-3" />
@@ -170,7 +172,7 @@ export function HomeView({
         ) : (
           <div className="mt-4 space-y-4">
             {GROUPS.map((g) => {
-              const list = pending.filter((t) => groupOf(t.dueAt, now) === g.id);
+              const list = pending.filter((t) => groupOf(t, now) === g.id);
               if (!list.length) return null;
               return (
                 <motion.section key={g.id} className={`rounded-[20px] bg-card px-3 pt-3 shadow-card sm:px-4 ${g.id === 'overdue' ? 'ring-1 ring-red/30' : ''}`}>

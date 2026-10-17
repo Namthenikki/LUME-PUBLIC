@@ -3,7 +3,7 @@ import { deadlineChangedPush, newTaskPush } from './notify';
 import { pushToUser } from './push';
 import { lmsAdapter } from './sources';
 import type { SourceAdapter } from './sources/types';
-import { pastStages } from './stages';
+import { pastStages, remindAt } from './stages';
 import { refreshNextAt, type TaskDoc, taskId, tasksCollection } from './tasks';
 import { db } from './firebase-admin';
 import { type UserDoc, userRef, usersCollection } from './users';
@@ -15,15 +15,21 @@ export type SyncChange = {
   title: string;
   type: string;
   dueAt: Date;
+  opensAt: Date | null;
+  /** For `changed`: the time it counted down to before (the deadline, or a quiz sitting's start). */
   previousDueAt?: Date;
 };
 
+/** `updated`: tasks rewritten, whether or not that's a change worth a push (a quiz that now closes at a new time). */
 export type SyncResult =
-  | { source: string; ok: true; inFeed: number; changes: SyncChange[] }
+  | { source: string; ok: true; inFeed: number; changes: SyncChange[]; updated: number }
   | { source: string; ok: false; error: string };
 
-/** The last sync of each source, for "Synced 2 min ago" in the app. `okAt`: the last one that worked, if this one didn't. */
-export type SyncStatus = { at: number; ok: boolean; message: string; okAt?: number | null };
+/**
+ * The last sync of each source, for "Synced 2 min ago" in the app. `okAt`: the last one that worked,
+ * if this one didn't. `version`: the Lume extension's, for sources it sends.
+ */
+export type SyncStatus = { at: number; ok: boolean; message: string; okAt?: number | null; version?: string };
 
 const DAY = 86_400_000;
 
@@ -51,7 +57,8 @@ export async function runSync(uid: string, adapters: SourceAdapter[], now = new 
       return result;
     }),
   );
-  if (results.some((r) => r.ok && r.changes.length > 0)) await refreshNextAt(uid);
+  // Anything rewritten can move the next reminder (a quiz sitting that now closes earlier), not only the changes it announces.
+  if (results.some((r) => r.ok && (r.changes.length > 0 || r.updated > 0))) await refreshNextAt(uid);
   return results;
 }
 
@@ -96,6 +103,7 @@ async function syncSource(uid: string, adapter: SourceAdapter, now: Date, firstS
 
   const batch = db().batch();
   const changes: SyncChange[] = [];
+  let updated = 0;
   const nowTs = Timestamp.fromDate(now);
   const seen = new Set<string>();
 
@@ -106,7 +114,7 @@ async function syncSource(uid: string, adapter: SourceAdapter, now: Date, firstS
     const info = { course: t.course, title: t.title, type: t.type, url: t.url };
     const opensAt = t.opensAt ? Timestamp.fromDate(t.opensAt) : null;
     const dueAt = Timestamp.fromDate(t.dueAt);
-    const change = { id, course: t.course, title: t.title, type: t.type, dueAt: t.dueAt };
+    const change = { id, course: t.course, title: t.title, type: t.type, dueAt: t.dueAt, opensAt: t.opensAt };
 
     // New, or back in the feed after being cancelled. Anything already past when first seen is ignored.
     if (!prev || (prev.status === 'cancelled' && t.dueAt > now)) {
@@ -122,7 +130,7 @@ async function syncSource(uid: string, adapter: SourceAdapter, now: Date, firstS
         createdAt: prev?.createdAt ?? nowTs,
         updatedAt: nowTs,
         // "new" is sent right after this sync commits.
-        notifiedStages: ['new', ...pastStages(t.dueAt, now)],
+        notifiedStages: ['new', ...pastStages(t, now)],
         snoozedUntil: null,
         doneAt: t.submitted ? nowTs : null,
       };
@@ -135,6 +143,9 @@ async function syncSource(uid: string, adapter: SourceAdapter, now: Date, firstS
     const submittedNow = !!t.submitted && prev.status === 'pending';
 
     const dueChanged = !prev.dueAt.isEqual(dueAt);
+    // What the reminders count down to: the deadline, or a quiz sitting's start (lib/stages.ts).
+    const prevRemindAt = remindAt({ type: prev.type, dueAt: prev.dueAt.toMillis(), opensAt: prev.opensAt?.toMillis() ?? null });
+    const remindChanged = remindAt(t) !== prevRemindAt;
     const infoChanged =
       JSON.stringify([prev.course, prev.title, prev.type, prev.url, prev.opensAt?.toMillis()]) !==
       JSON.stringify([info.course, info.title, info.type, info.url, opensAt?.toMillis()]);
@@ -144,13 +155,17 @@ async function syncSource(uid: string, adapter: SourceAdapter, now: Date, firstS
     if (submittedNow) {
       Object.assign(update, { status: 'done', doneAt: nowTs, snoozedUntil: null });
       changes.push({ kind: 'submitted', ...change });
-    } else if (dueChanged && prev.status === 'pending') {
-      // Reminders restart against the new deadline; stages already past for it are skipped.
+    } else if (remindChanged && prev.status === 'pending') {
+      // Reminders restart against the new time; stages already past for it are skipped.
       const alreadyNew = prev.notifiedStages.includes('new') ? (['new'] as const) : [];
-      update.notifiedStages = [...alreadyNew, ...pastStages(t.dueAt, now)];
-      changes.push({ kind: 'changed', ...change, previousDueAt: prev.dueAt.toDate() });
+      update.notifiedStages = [...alreadyNew, ...pastStages(t, now)];
+      changes.push({ kind: 'changed', ...change, previousDueAt: new Date(prevRemindAt) });
+    } else if (dueChanged && prev.status === 'pending' && t.dueAt > now) {
+      // A quiz sitting closes at a new time but starts as before: only its "Missed" reminder moves.
+      update.notifiedStages = prev.notifiedStages.filter((s) => s !== 'overdue');
     }
     batch.update(tasks.doc(id), update);
+    updated++;
   }
 
   // Pending tasks that vanished from the feed were deleted or hidden in the LMS. An empty feed is more
@@ -160,7 +175,7 @@ async function syncSource(uid: string, adapter: SourceAdapter, now: Date, firstS
     for (const [id, prev] of existing) {
       if (seen.has(id) || prev.status !== 'pending') continue;
       batch.update(tasks.doc(id), { status: 'cancelled', updatedAt: nowTs });
-      changes.push({ kind: 'cancelled', id, course: prev.course, title: prev.title, type: prev.type, dueAt: prev.dueAt.toDate() });
+      changes.push({ kind: 'cancelled', id, course: prev.course, title: prev.title, type: prev.type, dueAt: prev.dueAt.toDate(), opensAt: prev.opensAt?.toDate() ?? null });
     }
   }
 
@@ -172,5 +187,5 @@ async function syncSource(uid: string, adapter: SourceAdapter, now: Date, firstS
       if (c.kind === 'changed') await pushToUser(uid, deadlineChangedPush(c, c.previousDueAt!));
     }
   }
-  return { inFeed: feed.length, changes };
+  return { inFeed: feed.length, changes, updated };
 }

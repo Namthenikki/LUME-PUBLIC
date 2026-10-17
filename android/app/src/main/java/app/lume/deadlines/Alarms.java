@@ -148,6 +148,8 @@ final class Alarms {
         ensureChannel(c);
         String taskId = a.optString("taskId");
         long dueAt = a.optLong("dueAt");
+        // A quiz sitting (8:00 to 8:30 PM): dueAt is its start, closesAt its end.
+        long closesAt = a.optLong("closesAt");
 
         Intent full = new Intent(c, AlarmActivity.class)
                 .putExtra(EXTRA, a.toString())
@@ -158,8 +160,8 @@ final class Alarms {
         Notification n = new NotificationCompat.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_lume)
                 .setColor(ContextCompat.getColor(c, R.color.blue))
-                .setContentTitle(timeLeft(dueAt) + " left: " + a.optString("title"))
-                .setContentText(a.optString("course") + ". Due " + timeIST(dueAt) + ".")
+                .setContentTitle((closesAt > 0 ? "Starts in " + timeLeft(dueAt) : timeLeft(dueAt) + " left") + ": " + a.optString("title"))
+                .setContentText(a.optString("course") + ". " + (closesAt > 0 ? windowIST(dueAt, closesAt) : "Due " + timeIST(dueAt)) + ".")
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -191,7 +193,17 @@ final class Alarms {
     }
 
     static String timeIST(long ms) {
-        SimpleDateFormat f = new SimpleDateFormat("EEE d MMM, h:mm a", Locale.ENGLISH);
+        return formatIST("EEE d MMM, h:mm a", ms);
+    }
+
+    /** "Sat 17 Oct, 8:00 PM to 8:30 PM": a quiz window. */
+    static String windowIST(long opensAt, long closesAt) {
+        boolean sameDay = formatIST("yyyyMMdd", opensAt).equals(formatIST("yyyyMMdd", closesAt));
+        return timeIST(opensAt) + " to " + (sameDay ? formatIST("h:mm a", closesAt) : timeIST(closesAt));
+    }
+
+    private static String formatIST(String pattern, long ms) {
+        SimpleDateFormat f = new SimpleDateFormat(pattern, Locale.ENGLISH);
         f.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
         return f.format(new Date(ms));
     }

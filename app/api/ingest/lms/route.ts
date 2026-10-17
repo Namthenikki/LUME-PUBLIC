@@ -1,14 +1,16 @@
 import { nptelUser } from '@/lib/auth';
 import { catchUpAfterResponse, syncUserIfStale } from '@/lib/catch-up';
 import { LMS_HOST } from '@/lib/lms-link';
-import { parseLmsPayload, savePostQuizzes } from '@/lib/sources/lms-posts';
+import { parseLmsPayload, saveLmsQuizzes, upcomingLmsQuizzes } from '@/lib/sources/lms-posts';
 import { getSyncStatus, setSyncStatus } from '@/lib/sync';
 import { getUser } from '@/lib/users';
 
 /**
  * The Lume Chrome extension posts the student's MUJ course posts (Activity Feed and Announcements)
- * here, every few hours while Chrome is open. Quizzes announced in them become LMS tasks, with the
- * same reminders and alarms. The key from the student's Settings says whose Lume it goes to.
+ * and their Quizzes tool lists here, every hour while Chrome is open and right after they submit a
+ * quiz. Quizzes announced in posts become LMS tasks, with the same reminders and alarms; the Quizzes
+ * tool gives each quiz's start and ticks off the ones they've attempted. The key from the student's
+ * Settings says whose Lume it goes to.
  */
 
 // The extension calls from its own origin; the key, not a cookie, is what authorizes it.
@@ -37,29 +39,35 @@ export async function POST(request: Request) {
 
   // The run failed as a whole (signed out of the LMS): the quizzes found before stay as they are.
   if (payload.error) {
-    await setSyncStatus(uid, 'manipal-posts', { at: now, ok: false, message: payload.error, okAt });
+    await setSyncStatus(uid, 'manipal-posts', { at: now, ok: false, message: payload.error, okAt, version: payload.version });
     catchUpAfterResponse(uid);
     return reply({ ok: false });
   }
 
-  const quizzes = await savePostQuizzes(uid, payload, `https://${LMS_HOST}`, now);
-  const upcoming = quizzes.filter((q) => q.dueAt > now).sort((a, b) => a.dueAt - b.dueAt);
+  const saved = await saveLmsQuizzes(uid, payload, `https://${LMS_HOST}`, now);
+  const upcoming = upcomingLmsQuizzes(saved, now);
   const failed = payload.courses.filter((c) => !c.ok);
+  const quizzesFailed = payload.courses.filter((c) => c.ok && c.quizzesError);
+  const ok = failed.length === 0 && quizzesFailed.length === 0;
   await setSyncStatus(uid, 'manipal-posts', {
     at: now,
-    ok: failed.length === 0,
-    okAt: failed.length === 0 ? now : okAt,
+    ok,
+    okAt: ok ? now : okAt,
+    version: payload.version,
     message: failed.length
       ? `Couldn’t read the posts in ${failed.map((c) => c.name).join(', ')}: ${failed[0].error ?? 'unknown error'}`
-      : `${payload.posts.length} ${payload.posts.length === 1 ? 'post' : 'posts'} in ${payload.courses.length} ${payload.courses.length === 1 ? 'course' : 'courses'}, ${upcoming.length} upcoming ${upcoming.length === 1 ? 'quiz' : 'quizzes'} in them`,
+      : quizzesFailed.length
+        ? `Couldn’t read the quizzes in ${quizzesFailed.map((c) => c.name).join(', ')}: ${quizzesFailed[0].quizzesError}`
+        : `${payload.posts.length} ${payload.posts.length === 1 ? 'post' : 'posts'}${payload.quizzes ? ` and ${payload.quizzes.length} ${payload.quizzes.length === 1 ? 'quiz' : 'quizzes'}` : ''} in ${payload.courses.length} ${payload.courses.length === 1 ? 'course' : 'courses'}, ${upcoming.length} upcoming ${upcoming.length === 1 ? 'quiz' : 'quizzes'}`,
   });
 
-  // Straight into the student's LMS sync, so a newly posted quiz notifies now, not at the next hourly sync.
+  // Straight into the student's LMS sync, so a new quiz notifies now and an attempted one is ticked now, not at the next hourly sync.
   const results = await syncUserIfStale(uid, 5_000);
   catchUpAfterResponse(uid);
+  const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
   return reply({
     ok: true,
-    quizzes: upcoming.map((q) => ({ course: q.course, title: q.title, dueAt: new Date(q.dueAt).toISOString(), url: q.url })),
+    quizzes: upcoming.map((q) => ({ course: q.course, title: q.title, startsAt: iso(q.startsAt), dueAt: iso(q.dueAt), url: q.url, done: q.done })),
     synced: results?.[0]?.ok ?? false,
   });
 }

@@ -9,7 +9,8 @@ import { HOUR, IST_OFFSET, istDayNumber } from '../time';
  */
 
 export type QuizPost = { title: string; text: string; publishedAt: Date };
-export type FoundQuiz = { title: string; number: number | null; at: Date; hasTime: boolean };
+/** `at`: the quiz's time (a range's start), or the end of the day without one. `endsAt`: a range's end. */
+export type FoundQuiz = { title: string; number: number | null; at: Date; endsAt: Date | null; hasTime: boolean };
 
 /** Plain text from a post's HTML, one line per paragraph. */
 export function htmlToText(html: string): string {
@@ -63,7 +64,7 @@ const DATE = new RegExp(
 const MERIDIEM = String.raw`(a\.?m\.?|p\.?m\.?)(?![a-z])`;
 const TIME = new RegExp(
   [
-    String.raw`\b(?<rh>\d{1,2})(?:[:.](?<rmin>\d{2}))?\s*(?<rap>${MERIDIEM})?\s*(?:-|–|—|to)\s*\d{1,2}(?:[:.]\d{2})?\s*(?<rap2>${MERIDIEM})`,
+    String.raw`\b(?<rh>\d{1,2})(?:[:.](?<rmin>\d{2}))?\s*(?<rap>${MERIDIEM})?\s*(?:-|–|—|to)\s*(?<reh>\d{1,2})(?:[:.](?<remin>\d{2}))?\s*(?<rap2>${MERIDIEM})`,
     String.raw`\b(?<h>\d{1,2})(?:[:.](?<min>\d{2}))?\s*(?<ap>${MERIDIEM})`,
     String.raw`\b(?<hh>[01]?\d|2[0-3])[:.](?<hmin>[0-5]\d)\s*(?:hrs?|hours)\b`,
     String.raw`\b(?<h24>1[3-9]|2[0-3]):(?<m24>[0-5]\d)\b`,
@@ -122,20 +123,36 @@ function nearestYear(year: number, m: number, d: number, posted: number): number
   return day !== null && day < posted - 60 ? dayNumber(year + 1, m, d) : day;
 }
 
-/** Every time of day in the text, in minutes after midnight. A range gives its start. */
-function findTimes(text: string): { index: number; minutes: number }[] {
-  const out: { index: number; minutes: number }[] = [];
+/** Minutes after midnight for "8:30" with "pm", or null if it isn't a time. */
+function clockMinutes(hour: string, minute: string | undefined, meridiem: string | undefined): number | null {
+  let h = Number(hour);
+  const min = Number(minute ?? 0);
+  const ap = meridiem?.toLowerCase();
+  if (ap) {
+    if (h < 1 || h > 12) return null;
+    h = (h % 12) + (ap.startsWith('p') ? 12 : 0);
+  }
+  return h > 23 || min > 59 ? null : h * 60 + min;
+}
+
+/** Every time of day in the text, in minutes after midnight. A range (8PM-8:30PM) gives its start, and its end as `until`. */
+function findTimes(text: string): { index: number; minutes: number; until: number | null }[] {
+  const out: { index: number; minutes: number; until: number | null }[] = [];
   for (const m of text.matchAll(TIME)) {
     const g = m.groups!;
-    let h = Number(g.rh ?? g.h ?? g.hh ?? g.h24);
-    const min = Number(g.rmin ?? g.min ?? g.hmin ?? g.m24 ?? 0);
-    const ap = (g.rap ?? g.rap2 ?? g.ap)?.toLowerCase();
-    if (ap) {
-      if (h < 1 || h > 12) continue;
-      h = (h % 12) + (ap.startsWith('p') ? 12 : 0);
+    if (g.rh) {
+      let start = clockMinutes(g.rh, g.rmin, g.rap ?? g.rap2);
+      const until = clockMinutes(g.reh, g.remin, g.rap2);
+      if (start === null || until === null) continue;
+      // "11:30-12:30 PM": the PM belongs to the end, so the start is 11:30 AM.
+      if (!g.rap && start > until && start >= 12 * 60) start -= 12 * 60;
+      // A quiz lasts minutes to hours; a longer "range" isn't its window.
+      const length = (until - start + 24 * 60) % (24 * 60);
+      out.push({ index: m.index, minutes: start, until: length > 0 && length <= 6 * 60 ? until : null });
+      continue;
     }
-    if (h > 23 || min > 59) continue;
-    out.push({ index: m.index, minutes: h * 60 + min });
+    const minutes = clockMinutes(g.h ?? g.hh ?? g.h24, g.min ?? g.hmin ?? g.m24, g.ap);
+    if (minutes !== null) out.push({ index: m.index, minutes, until: null });
   }
   return out;
 }
@@ -162,10 +179,12 @@ export function findQuiz(post: QuizPost): FoundQuiz | null {
   const time = times.sort((a, b) => Math.abs(a.index - date.index) - Math.abs(b.index - date.index))[0];
   const minutes = time?.minutes ?? 23 * 60 + 59;
   const at = new Date(date.day * 24 * HOUR + minutes * 60_000 - IST_OFFSET);
+  const until = time?.until ?? null;
+  const endsAt = until === null ? null : new Date(at.getTime() + ((until - minutes + 24 * 60) % (24 * 60)) * 60_000);
 
   const [, ordinal, kind, num] = mention;
   const number = num ? (ROMAN[num.toUpperCase()] ?? Number(num)) : ordinal ? ORDINAL[ordinal.toLowerCase()] : null;
-  return { title: label(kind) + (number ? ` ${number}` : ''), number: number ?? null, at, hasTime: !!time };
+  return { title: label(kind) + (number ? ` ${number}` : ''), number: number ?? null, at, endsAt, hasTime: !!time };
 }
 
 function label(kind: string): string {

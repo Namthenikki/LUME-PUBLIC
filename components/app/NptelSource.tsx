@@ -30,7 +30,7 @@ export function NptelSource({ health, at, message }: { health: Health; at: numbe
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${BADGE[health].className}`}>{BADGE[health].label}</span>
           </p>
           <p className="text-[13px] text-ink-2">{at ? `Last synced ${formatIST(at)}. ${message?.replace(/\.$/, '')}.` : 'Not synced yet.'}</p>
-          <p className="text-[13px] text-ink-3">Comes in through the Lume extension (below), every 3 hours while Chrome is open on your laptop.</p>
+          <p className="text-[13px] text-ink-3">Comes in through the Lume extension (below), every hour while Chrome is open on your laptop.</p>
         </div>
       </div>
     </li>
@@ -41,7 +41,20 @@ export function NptelSource({ health, at, message }: { health: Health; at: numbe
  * The Lume Chrome extension row in Settings → Sources: whether it's reading the student's LMS course
  * posts, and the step-by-step setup with their connection code.
  */
-export function ExtensionSource({ health, at, message, code }: { health: Health; at: number | null; message: string | null; code: string }) {
+export function ExtensionSource({
+  health,
+  at,
+  message,
+  code,
+  update,
+}: {
+  health: Health;
+  at: number | null;
+  message: string | null;
+  code: string;
+  /** Why the extension needs updating, if it does. */
+  update: string | null;
+}) {
   const [open, setOpen] = useState(health === 'off');
 
   return (
@@ -64,8 +77,11 @@ export function ExtensionSource({ health, at, message, code }: { health: Health;
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${BADGE[health].className}`}>{BADGE[health].label}</span>
           </p>
           <p className="text-[13px] text-ink-2">
-            {at ? `Checked your course posts ${formatIST(at)}. ${message?.replace(/\.$/, '')}.` : 'Catches quizzes your teachers only post on the LMS, and brings in NPTEL.'}
+            {at
+              ? `Checked your LMS quizzes ${formatIST(at)}. ${message?.replace(/\.$/, '')}.`
+              : 'Tells Lume when each LMS quiz starts, ticks off the ones you attempt, catches quizzes your teachers only post, and brings in NPTEL.'}
           </p>
+          {update && <p className="text-[13px] font-medium text-orange">{update}</p>}
           <p className="text-[13px] text-ink-3">For Google Chrome on a laptop or computer. Set it up once.</p>
         </div>
       </div>

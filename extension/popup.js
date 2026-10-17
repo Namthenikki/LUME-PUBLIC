@@ -17,12 +17,14 @@ function ago(at) {
   return h < 24 ? `${h} h ago` : `${Math.round(h / 24)} d ago`;
 }
 
-function left(dueAt) {
-  const min = (Date.parse(dueAt) - Date.now()) / 60_000;
-  if (min < 60) return { text: `${Math.max(1, Math.round(min))} min left`, tone: 'urgent' };
-  if (min < 24 * 60) return { text: `${Math.round(min / 60)} h left`, tone: min < 6 * 60 ? 'urgent' : 'soon' };
+/** "3 h left", or "Starts in 3 h" for a quiz that opens at a set time. */
+function left(at, starts = false) {
+  const min = (Date.parse(at) - Date.now()) / 60_000;
+  const say = (n) => (starts ? `Starts in ${n}` : `${n} left`);
+  if (min < 60) return { text: say(`${Math.max(1, Math.round(min))} min`), tone: 'urgent' };
+  if (min < 24 * 60) return { text: say(`${Math.round(min / 60)} h`), tone: min < 6 * 60 ? 'urgent' : 'soon' };
   const days = Math.round(min / 1440);
-  return { text: `${days} ${days === 1 ? 'day' : 'days'} left`, tone: '' };
+  return { text: say(`${days} ${days === 1 ? 'day' : 'days'}`), tone: '' };
 }
 
 function el(tag, attrs = {}, ...children) {
@@ -84,21 +86,25 @@ async function render() {
   syncBtn.textContent = syncing ? 'Syncing…' : 'Sync now';
   syncBtn.addEventListener('click', syncNow);
 
-  // Quizzes your teachers announced in course posts (Activity Feed, Announcements)
+  // Your LMS quizzes: the Quizzes tool's, and those your teachers only announced in course posts
   const quizzes = (lmsState?.quizzes ?? []).filter((q) => Date.parse(q.dueAt) > Date.now());
   $('lms-sub').textContent = syncing
-    ? 'Reading your course posts…'
+    ? 'Reading your LMS courses…'
     : lmsState && !lmsState.setup
-      ? `Checked ${ago(lmsState.at)}. ${quizzes.length ? 'Quizzes found in your course posts:' : 'No upcoming quizzes in your course posts.'}`
+      ? `Checked ${ago(lmsState.at)}. ${quizzes.length ? 'Upcoming quizzes:' : 'No upcoming quizzes on the LMS.'}`
       : 'Not checked yet.';
   $('lms-quizzes').append(
     ...quizzes.slice(0, 5).map((q) => {
-      const l = left(q.dueAt);
+      // A quiz with a set start counts down to it and shows its window; one you've attempted says so.
+      const starts = q.startsAt && Date.parse(q.startsAt) > Date.now() ? q.startsAt : null;
+      const l = q.done ? { text: 'Attempted', tone: '' } : left(starts ?? q.dueAt, !!starts);
+      const at = new Date(q.startsAt ?? q.dueAt);
+      const time = q.startsAt ? `${TIME.format(at)} to ${TIME.format(new Date(q.dueAt))}` : TIME.format(at);
       return el(
         'li',
         {},
         el('div', { class: 'grow' }, el('a', { class: 'title', href: q.url, target: '_blank', style: 'color:inherit;text-decoration:none' }, q.title), el('p', { class: 'meta' }, q.course)),
-        el('div', { class: 'when' }, el('b', { class: l.tone }, l.text), `${IST.format(new Date(q.dueAt))}, ${TIME.format(new Date(q.dueAt))}`),
+        el('div', { class: 'when' }, el('b', { class: l.tone }, l.text), `${IST.format(at)}, ${time}`),
       );
     }),
   );

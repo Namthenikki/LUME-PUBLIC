@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Lume",
-  "version": "1.2.1",
-  "description": "Sends your NPTEL deadlines, and quizzes announced in your MUJ LMS course posts, to Lume, so your phone reminds you before each one.",
+  "version": "1.3.1",
+  "description": "Sends your NPTEL deadlines, and your MUJ LMS quizzes (with their real start times, and whether you've attempted them), to Lume, so your phone reminds you before each one.",
   "minimum_chrome_version": "116",
   "permissions": ["alarms", "storage", "scripting"],
   "host_permissions": ["https://onlinecourses.nptel.ac.in/*", "https://mujlms.manipal.edu/*", "https://prd.activityfeed.ap-south-1.brightspace.com/*"],

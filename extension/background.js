@@ -9,6 +9,9 @@ const EVERY_MINUTES = 60;
 const RETRY_MINUTES = 10;
 const VISIT_RESYNC_MS = 30 * 60_000;
 const VISIT_RETRY_MS = 15_000;
+// Just after you submit a quiz (the LMS shows its submissions page), so Lume ticks it before it nags you.
+const SUBMITTED_RESYNC_MS = 20_000;
+const SUBMITTED_PAGE = /\/d2l\/lms\/quizzing\/user\/(quiz_submissions|quizzes_list)/;
 // Lume's address, filled in by scripts/build-extension.mjs (the connection code carries it too).
 export const DEFAULT_LUME_URL = '';
 
@@ -46,7 +49,7 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 async function onSitePage(url) {
   if (url.startsWith(`${LMS}/d2l/`) && !url.includes('/d2l/login')) {
     const { lmsState } = await store.get('lmsState');
-    if (dueOnVisit(lmsState)) syncLms('visit');
+    if (SUBMITTED_PAGE.test(url) ? !lmsState || Date.now() - lmsState.at > SUBMITTED_RESYNC_MS : dueOnVisit(lmsState)) syncLms('visit');
     return;
   }
   if (!url.startsWith(`${ORIGIN}/`)) return;
@@ -184,7 +187,7 @@ async function finish(state) {
   return state;
 }
 
-/** Reads your LMS course posts and sends them to Lume, which picks out the quizzes announced in them. */
+/** Reads your LMS course posts and quizzes and sends them to Lume, which picks out the quizzes announced in the posts. */
 async function runLms(reason) {
   const config = await getConfig();
   const at = Date.now();
@@ -205,7 +208,7 @@ async function runLms(reason) {
     const { lmsOwner } = await store.get('lmsOwner');
     if (!lmsOwner) await store.set({ lmsOwner: who });
     else if (lmsOwner.id !== who.id) {
-      read = { error: `The LMS in this Chrome is signed in as ${who.name}, but this extension belongs to ${lmsOwner.name}. Log in to the LMS as ${lmsOwner.name} to keep syncing`, courses: [], posts: [] };
+      read = { error: `The LMS in this Chrome is signed in as ${who.name}, but this extension belongs to ${lmsOwner.name}. Log in to the LMS as ${lmsOwner.name} to keep syncing`, courses: [], posts: [], quizzes: [] };
     }
   }
 
@@ -215,7 +218,7 @@ async function runLms(reason) {
     const res = await fetch(`${config.lumeUrl.replace(/\/+$/, '')}/api/ingest/lms`, {
       method: 'POST',
       headers: { authorization: `Bearer ${config.key}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ version: chrome.runtime.getManifest().version, error: read.error, courses: read.courses, posts: read.posts }),
+      body: JSON.stringify({ version: chrome.runtime.getManifest().version, error: read.error, courses: read.courses, posts: read.posts, quizzes: read.quizzes }),
       signal: AbortSignal.timeout(30_000),
     });
     const body = await res.json().catch(() => ({}));
@@ -225,8 +228,17 @@ async function runLms(reason) {
   }
 
   const failed = read.courses.filter((c) => !c.ok);
-  const ok = !read.error && failed.length === 0 && posted.ok;
-  const message = read.error ?? (failed.length ? `Couldn’t read ${failed.map((c) => c.name).join(', ')}: ${failed[0].error}` : posted.ok ? '' : posted.error);
+  const quizzesFailed = read.courses.filter((c) => c.ok && c.quizzesError);
+  const ok = !read.error && failed.length === 0 && quizzesFailed.length === 0 && posted.ok;
+  const message =
+    read.error ??
+    (failed.length
+      ? `Couldn’t read ${failed.map((c) => c.name).join(', ')}: ${failed[0].error}`
+      : quizzesFailed.length
+        ? `Couldn’t read the quizzes in ${quizzesFailed.map((c) => c.name).join(', ')}: ${quizzesFailed[0].quizzesError}`
+        : posted.ok
+          ? ''
+          : posted.error);
   const { lmsState: previous } = await store.get('lmsState');
   return finishLms({
     at,

@@ -302,7 +302,7 @@ export function Features() {
       <Feature className="lg:col-span-5" title="Fills itself in" body="Checks your Manipal LMS every hour and adds every new assignment and quiz. You never type a task in.">
         <SyncFragment />
       </Feature>
-      <Feature className="lg:col-span-7" title="Reminders on a schedule" body="Reminders from two days before down to ten minutes before. The last ones stay on screen, and the Android app rings like an alarm.">
+      <Feature className="lg:col-span-7" title="Reminders on a schedule" body="Reminders from two days before down to ten minutes before, and before a timed quiz starts, not when it closes. The last ones stay on screen, and the Android app rings like an alarm.">
         <ScheduleFragment />
       </Feature>
       <Feature className="lg:col-span-7" title="Done from the notification" body="Tap Mark done without opening the app, and the rest of that task's reminders are cancelled.">
@@ -310,8 +310,8 @@ export function Features() {
       </Feature>
       <Feature
         className="lg:col-span-5"
-        title="Quiz posts and NPTEL too"
-        body="A small Chrome extension on your laptop catches quizzes your teachers only post on the LMS, and brings in your NPTEL assignments."
+        title="Every LMS quiz, and NPTEL too"
+        body="A small Chrome extension on your laptop tells Lume when each quiz starts, ticks off the ones you attempt, catches quizzes your teachers only post on the LMS, and brings in your NPTEL assignments."
         action={
           <>
             <a

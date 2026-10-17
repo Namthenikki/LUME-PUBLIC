@@ -92,7 +92,7 @@ export async function refreshNextAt(uid: string): Promise<void> {
   const next = nextReminderAt(
     snap.docs.map((d) => {
       const t = d.data() as TaskDoc;
-      return { dueAt: t.dueAt.toMillis(), notifiedStages: t.notifiedStages, snoozedUntil: t.snoozedUntil?.toMillis() ?? null };
+      return { type: t.type, dueAt: t.dueAt.toMillis(), opensAt: t.opensAt?.toMillis() ?? null, notifiedStages: t.notifiedStages, snoozedUntil: t.snoozedUntil?.toMillis() ?? null };
     }),
   );
   await userRef(uid).update({ nextAt: next });

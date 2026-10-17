@@ -13,7 +13,7 @@ import { nptelKey } from '@/lib/auth';
 import { lastReminderCheck } from '@/lib/catch-up';
 import { countDevices } from '@/lib/push';
 import { pageUser } from '@/lib/session';
-import { nptelHealth } from '@/lib/source-health';
+import { extensionUpdate, nptelHealth } from '@/lib/source-health';
 import { getSyncStatus } from '@/lib/sync';
 import { formatIST } from '@/lib/time';
 import { parseTheme, THEME_COOKIE } from '@/lib/theme';
@@ -59,7 +59,13 @@ export default async function SettingsPage() {
                 detail={sync ? `Last checked ${formatIST(sync.at)}. ${sync.ok ? `${sync.message}.` : 'The LMS didn’t accept your link.'}` : 'Not checked yet.'}
               />
               <NptelSource health={nptelHealth(nptel, Date.now())} at={nptel?.at ?? null} message={nptel?.message ?? null} />
-              <ExtensionSource health={nptelHealth(posts, Date.now())} at={posts?.at ?? null} message={posts?.message ?? null} code={`${origin}#${nptelKey(uid)}`} />
+              <ExtensionSource
+                health={nptelHealth(posts, Date.now())}
+                at={posts?.at ?? null}
+                message={posts?.message ?? null}
+                code={`${origin}#${nptelKey(uid)}`}
+                update={extensionUpdate(posts)}
+              />
             </ul>
           </Panel>
 

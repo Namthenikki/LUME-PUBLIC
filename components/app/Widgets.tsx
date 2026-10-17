@@ -3,8 +3,8 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { type CSSProperties, useEffect, useState } from 'react';
 import type { TaskView } from '@/lib/tasks';
-import { upcomingReminders } from '@/lib/stages';
-import { dayIST, formatIST, istDayNumber, timeIST } from '@/lib/time';
+import { countdownTo, remindAt, sittingStart, upcomingReminders } from '@/lib/stages';
+import { dayIST, formatIST, istDayNumber, timeIST, windowIST } from '@/lib/time';
 import { CheckTile } from '../landing/widgets';
 import { CheckIcon, ChevronIcon, ClockIcon, OpenIcon } from './icons';
 import { Panel, SourceChip, TypeChip } from './ui';
@@ -18,15 +18,15 @@ function clock(ms: number): string {
   return [h, Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
-/** The big countdown: the only part of Home that updates every second. */
-function LiveClock({ dueAt, renderedAt }: { dueAt: number; renderedAt: number }) {
+/** The big countdown (to a quiz sitting's start, then its close): the only part of Home that updates every second. */
+function LiveClock({ task, renderedAt }: { task: TaskView; renderedAt: number }) {
   const [now, setNow] = useState(renderedAt);
   useEffect(() => {
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  return <>{clock(dueAt - now)}</>;
+  return <>{clock(countdownTo(task, now) - now)}</>;
 }
 
 /** The soonest pending deadline, with a live countdown and its actions. */
@@ -53,7 +53,8 @@ export function NextDeadline({
     );
   }
   const snoozed = task.snoozedUntil && task.snoozedUntil > now;
-  const urgent = task.dueAt - now < 3 * 3_600_000;
+  const urgent = remindAt(task) - now < 3 * 3_600_000;
+  const start = sittingStart(task);
   return (
     <Panel title="Next deadline" action={<TypeChip type={task.type} />}>
       <AnimatePresence mode="wait" initial={false}>
@@ -66,11 +67,13 @@ export function NextDeadline({
           className="flex flex-1 flex-col items-center justify-center text-center"
         >
           <p className={`text-[clamp(2.6rem,12vw,3.4rem)] font-medium leading-none tabular-nums tracking-[-0.04em] ${urgent ? 'text-red' : ''}`}>
-            <LiveClock dueAt={task.dueAt} renderedAt={now} />
+            <LiveClock task={task} renderedAt={now} />
           </p>
           <p className="mt-3 font-semibold">{task.title}</p>
           <p className="text-[14px] text-ink-2">{task.course}</p>
-          <p className="mt-1 text-[13px] text-ink-3">Due {formatIST(task.dueAt)}</p>
+          <p className="mt-1 text-[13px] text-ink-3">
+            {start === null ? `Due ${formatIST(task.dueAt)}` : `${start > now ? 'Starts' : 'Open now,'} ${windowIST(start, task.dueAt)}`}
+          </p>
           {snoozed && (
             <span className="mt-2 rounded-full bg-chip px-2.5 py-1 text-[12px] text-ink-2">Snoozed until {timeIST(task.snoozedUntil!)}</span>
           )}

@@ -52,7 +52,7 @@ export function AndroidCard({
             {inApp && device.appVersion !== null && !device.update && <span className="rounded-full bg-chip px-2 py-0.5 text-[11px] font-medium text-ink-2">Up to date</span>}
           </p>
           <p className="text-[13px] text-ink-2">
-            Your phone rings like an alarm 12 hours, 6 hours, 30 minutes and 10 minutes before a deadline, until you mark it done or tap I heard you. On silent it vibrates instead. Never between 12 AM and 8 AM.
+            Your phone rings like an alarm 12 hours, 6 hours, 30 minutes and 10 minutes before a deadline (or before a timed quiz starts), until you mark it done or tap I heard you. On silent it vibrates instead. Never between 12 AM and 8 AM.
           </p>
         </div>
       </div>

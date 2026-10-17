@@ -3,14 +3,16 @@ import { actionToken } from '@/lib/auth';
 import { catchUpAfterResponse } from '@/lib/catch-up';
 import { reminderPush } from '@/lib/notify';
 import { isQuiet } from '@/lib/quiet';
-import { ALARM_STAGES, stageTimes } from '@/lib/stages';
+import { ALARM_STAGES, remindAt, sittingStart, stageTimes } from '@/lib/stages';
 import { listTasksDueAfter } from '@/lib/tasks';
 
 /**
  * The Android app's schedule: for each pending task due in the next week, the times it should ring
  * (12 hours, 6 hours, 30 minutes and 10 minutes before), plus what it needs to show the alarm and mark
- * the task done from it. With alarms turned off in Settings there are none, and those stages come
- * as reminders instead; `alarmsOn` tells the app, so an alarm set before the switch doesn't ring.
+ * the task done from it. A quiz sitting (8:00 to 8:30 PM) rings before it starts: its `dueAt` is then
+ * the start, which the app counts down to, and `closesAt` the end. With alarms turned off in Settings
+ * there are none, and those stages come as reminders instead; `alarmsOn` tells the app, so an alarm
+ * set before the switch doesn't ring.
  * Apps that send `X-Lume-Reminders: 1` also get every other reminder ("6 hours left", "Due today"...)
  * as `kind: "reminder"`, which they show as a notification at its exact minute; Lume then stops
  * sending those as web pushes to that phone (lib/remind.ts). The paired device token says whose phone it is.
@@ -37,8 +39,10 @@ export async function GET(request: Request) {
     if (t.status !== 'pending' || t.dueAt <= now || t.dueAt - now > 7 * 86_400_000) continue;
     // Stages that ring as an alarm; their plain reminder is left out, so nothing shows twice.
     const ringing = new Set<string>();
+    const countdownTo = remindAt(t);
+    const closesAt = sittingStart(t) === null ? undefined : t.dueAt;
     for (const { stage, minutes } of ring ? ALARM_STAGES : []) {
-      const at = t.dueAt - minutes * 60_000;
+      const at = countdownTo - minutes * 60_000;
       // Snoozed tasks don't ring until the snooze ends, and nothing rings in quiet hours.
       if (at <= now || (t.snoozedUntil && at < t.snoozedUntil) || isQuiet(at)) continue;
       ringing.add(stage);
@@ -49,7 +53,8 @@ export async function GET(request: Request) {
         minutesLeft: minutes,
         title: t.title,
         course: t.course,
-        dueAt: t.dueAt,
+        dueAt: countdownTo,
+        closesAt,
         actionToken: actionToken(uid, t.id),
       });
     }
@@ -57,7 +62,7 @@ export async function GET(request: Request) {
 
     // The same reminders the server would push, each with the text it would have at its own time. An
     // alarm stage that falls in quiet hours doesn't ring, so it comes as a (silent) reminder instead.
-    const info = { id: t.id, course: t.course, title: t.title, type: t.type, dueAt: new Date(t.dueAt) };
+    const info = { id: t.id, course: t.course, title: t.title, type: t.type, dueAt: new Date(t.dueAt), opensAt: t.opensAt === null ? null : new Date(t.opensAt) };
     const reminder = (id: string, at: number, push: { title: string; body: string }) => ({
       kind: 'reminder',
       id,
@@ -65,10 +70,10 @@ export async function GET(request: Request) {
       at,
       title: push.title,
       body: push.body,
-      dueAt: t.dueAt,
+      dueAt: countdownTo,
       actionToken: actionToken(uid, t.id),
     });
-    for (const [stage, date] of stageTimes(info.dueAt)) {
+    for (const [stage, date] of stageTimes(info)) {
       const at = date.getTime();
       if (ringing.has(stage) || at <= now || t.notifiedStages.includes(stage) || (t.snoozedUntil && at < t.snoozedUntil)) continue;
       alarms.push(reminder(`${t.id}:${stage}`, at, reminderPush(info, [stage], false, date)));

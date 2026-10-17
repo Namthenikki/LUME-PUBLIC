@@ -18,7 +18,7 @@ const CONTENTS = [
   { href: '#lms', title: 'Connect your LMS', note: 'The only must-do' },
   { href: '#app', title: 'Get the app', note: 'Android or iPhone' },
   { href: '#reminders', title: 'Turn on reminders', note: 'One tap' },
-  { href: '#extension', title: 'Add the extension', note: 'LMS quiz posts + NPTEL' },
+  { href: '#extension', title: 'Add the extension', note: 'LMS quizzes + NPTEL' },
 ];
 
 function Section({ id, title, sub, children }: { id: string; title: string; sub?: string; children: React.ReactNode }) {
@@ -125,14 +125,14 @@ export default function HelpPage() {
             </Step>
           </Steps>
           <p className="mt-5 rounded-[12px] bg-sunken px-4 py-3 text-[13px] text-ink-2">
-            Reminders come 2 days, 1 day, 6, 3 and 1 hours, 30 and 10 minutes before each deadline. From 12 AM to 8 AM they arrive silently and no alarms ring.
+            Reminders come 2 days, 1 day, 6, 3 and 1 hours, 30 and 10 minutes before each deadline. A quiz you sit at a set time, like 8:00 to 8:30 PM, counts down to when it opens. From 12 AM to 8 AM they arrive silently and no alarms ring.
           </p>
         </Section>
 
         <Section
           id="extension"
           title="4. Add the Lume extension"
-          sub="Some teachers post quizzes only on the LMS (in a course’s Activity Feed or Announcements), not in the LMS calendar. This small Chrome extension reads those posts so Lume can remind you. It also brings in NPTEL."
+          sub="The LMS calendar often leaves out when a quiz starts, and some teachers post quizzes only in a course’s Activity Feed or Announcements. This small Chrome extension reads your Quizzes page and course posts, so Lume reminds you before each quiz starts and ticks off the ones you attempt. It also brings in NPTEL."
         >
           <span id="nptel" className="block scroll-mt-6" aria-hidden />
           <ExtensionSteps />
@@ -145,6 +145,12 @@ export default function HelpPage() {
           </Fix>
           <Fix q="Settings says “Needs a new link”">Your LMS link was reset. Copy it again from the LMS and paste it under Settings → Sources.</Fix>
           <Fix q="New phone, or cleared your browser">Open Lume and paste your LMS link again. Everything comes back, including what you marked done.</Fix>
+          <Fix q="Settings says to update the extension">
+            Download it again from Settings → Lume extension, unzip it over the old folder (replace the files), then open chrome://extensions and click the reload arrow on Lume.
+          </Fix>
+          <Fix q="I took a quiz but it still shows">
+            Lume ticks a quiz once the LMS lists your attempt. Open the LMS in Chrome on your laptop, or click Sync now in the extension. Quizzes held outside the LMS (on MS Forms, say) need Mark done.
+          </Fix>
           <Fix q="Done with Lume">Settings → Your data → Delete my data removes everything, on every device.</Fix>
         </Section>
       </main>
