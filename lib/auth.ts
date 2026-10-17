@@ -40,6 +40,20 @@ export function isCronRequest(request: Request): boolean {
 }
 
 /*
+ * The owner's key to the usage page: opened once as `/stats?key=<statsKey>`, then this browser
+ * remembers it in a cookie. Anyone without it gets a 404.
+ */
+export const STATS_COOKIE = 'lume_stats';
+
+export function statsKey(): string {
+  return sign('stats:v1');
+}
+
+export function isStatsKey(value: string | undefined | null): boolean {
+  return !!value && safeEqual(value, statsKey());
+}
+
+/*
  * The session cookie: which Lume this browser opens. It carries the student's sign-in generation,
  * which goes up when they sign out their other devices or change their LMS link; a cookie from an
  * older generation is then turned away (lib/session.ts checks it against the database). Generation 0

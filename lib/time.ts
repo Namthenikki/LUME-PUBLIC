@@ -26,3 +26,8 @@ export function formatIST(date: Date | number): string {
 export function istDayNumber(date: Date | number): number {
   return Math.floor((new Date(date).getTime() + IST_OFFSET) / (24 * HOUR));
 }
+
+/** "2026-09-30": the IST calendar date, for document ids. */
+export function istDateKey(date: Date | number): string {
+  return new Date(new Date(date).getTime() + IST_OFFSET).toISOString().slice(0, 10);
+}

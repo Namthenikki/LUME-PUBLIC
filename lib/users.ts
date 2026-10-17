@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { linkId, type Sealed, seal, unseal } from './auth';
 import { db } from './firebase-admin';
 import type { LmsLink } from './lms-link';
+import { istDateKey, istDayNumber } from './time';
 
 /*
  * One document per student in `users/{uid}`, with their tasks and statuses underneath. The LMS link
@@ -21,11 +22,15 @@ export type UserDoc = {
   sessionGen?: number;
   /** Alarms turned off in Settings: their phones get every reminder as a plain notification instead. */
   alarmsOff?: boolean;
+  /** The last IST day (istDayNumber) they opened Lume. Missing until their first visit after 2026-10-17. */
+  activeDay?: number;
 };
 
 export const usersCollection = () => db().collection('users');
 export const userRef = (uid: string) => usersCollection().doc(uid);
 const links = () => db().collection('links');
+/** `activity/{IST date}`: which students opened Lume that day, for the owner's usage page (/stats). */
+export const activityCollection = () => db().collection('activity');
 
 /** Opens the Lume for this link, creating it the first time. `gen` is the sign-in generation for the new cookie. */
 export async function connectLink(link: LmsLink): Promise<{ uid: string; created: boolean; gen: number }> {
@@ -85,12 +90,21 @@ export function feedUrl(user: UserDoc): string {
   return unseal(user.feed);
 }
 
-/** Marks the student as active, at most twice a day (it's only used to spot abandoned accounts). */
+/**
+ * Marks the student as active today, once per IST day, when they open Lume (the phone's background
+ * syncs don't count). The owner's usage page counts daily and weekly active students from this.
+ */
 export async function touchUser(uid: string, user: UserDoc): Promise<void> {
-  if (Date.now() - user.lastSeenAt.toMillis() > 12 * 3_600_000) await userRef(uid).update({ lastSeenAt: Timestamp.now() });
+  const now = Date.now();
+  const today = istDayNumber(now);
+  if (user.activeDay === today) return;
+  const batch = db().batch();
+  batch.update(userRef(uid), { lastSeenAt: Timestamp.fromMillis(now), activeDay: today });
+  batch.set(activityCollection().doc(istDateKey(now)), { uids: FieldValue.arrayUnion(uid) }, { merge: true });
+  await batch.commit();
 }
 
-/** Deletes everything Lume holds for a student: tasks, statuses, devices, phones and the link. */
+/** Deletes everything Lume holds for a student: tasks, statuses, devices, phones, the link, and their days in the usage counts. */
 export async function deleteUser(uid: string): Promise<void> {
   const user = await getUser(uid);
   await db().recursiveDelete(userRef(uid));
@@ -99,4 +113,6 @@ export async function deleteUser(uid: string): Promise<void> {
     const snap = await db().collection(name).where('uid', '==', uid).get();
     await Promise.all(snap.docs.map((d) => d.ref.delete()));
   }
+  const days = await activityCollection().where('uids', 'array-contains', uid).get();
+  await Promise.all(days.docs.map((d) => d.ref.update({ uids: FieldValue.arrayRemove(uid) })));
 }
