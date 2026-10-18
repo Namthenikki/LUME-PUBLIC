@@ -12,6 +12,12 @@ export const SITE_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
 /** The name search results and link previews show. "Lume" alone is taken by bigger sites; this is ours. */
 export const SITE_NAME = 'Lume for MUJ';
 
+/** Other names people search for: the short name, the campus, and the address. */
+export const SITE_ALTERNATE_NAMES = ['Lume', 'Lume MUJ', 'Lume Public'];
+
+/** Lume's other homes on the web, so search engines know they're the same Lume. */
+export const SITE_PROFILES = ['https://github.com/Namthenikki/LUME-PUBLIC'];
+
 export const SITE_TITLE = 'Lume for MUJ: LMS and NPTEL deadline reminders';
 
 export const SITE_DESCRIPTION =

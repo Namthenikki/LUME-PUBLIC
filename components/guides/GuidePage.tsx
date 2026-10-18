@@ -60,8 +60,14 @@ export function GuidePage({ guide, lead, children }: { guide: Guide; lead: React
         inLanguage: 'en-IN',
         datePublished: guide.updated,
         dateModified: guide.updated,
-        author: { '@type': 'Organization', name: SITE_NAME, url: absoluteUrl('/') },
-        publisher: { '@type': 'Organization', name: SITE_NAME, url: absoluteUrl('/'), logo: { '@type': 'ImageObject', url: absoluteUrl('/icons/512.png') } },
+        author: { '@type': 'Organization', '@id': absoluteUrl('/#organization'), name: SITE_NAME, url: absoluteUrl('/') },
+        publisher: {
+          '@type': 'Organization',
+          '@id': absoluteUrl('/#organization'),
+          name: SITE_NAME,
+          url: absoluteUrl('/'),
+          logo: { '@type': 'ImageObject', url: absoluteUrl('/icons/512.png') },
+        },
         isPartOf: { '@id': absoluteUrl('/#website') },
       },
       {

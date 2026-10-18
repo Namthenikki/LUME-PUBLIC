@@ -8,14 +8,15 @@ import { Questions, QUESTIONS } from '@/components/landing/Questions';
 import { LumeMark } from '@/components/LumeMark';
 import { SiteFooter } from '@/components/SiteFooter';
 import androidRelease from '@/lib/android-release.json';
-import { absoluteUrl, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site';
+import { absoluteUrl, SITE_ALTERNATE_NAMES, SITE_DESCRIPTION, SITE_NAME, SITE_PROFILES, SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 /**
  * What Lume is, for search engines: the site's name (WebSite is where Google takes the name it shows
- * in results; the alternates are fallbacks, since plain "Lume" belongs to bigger sites), the app, and
- * the questions below.
+ * in results; the alternates are fallbacks, since plain "Lume" belongs to bigger sites), Lume itself
+ * with its other names and profiles (so searches for any of them point here), the app, and the
+ * questions below.
  */
 const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
@@ -25,16 +26,28 @@ const STRUCTURED_DATA = {
       '@id': absoluteUrl('/#website'),
       url: absoluteUrl('/'),
       name: SITE_NAME,
-      alternateName: ['Lume', 'Lume MUJ', new URL(SITE_URL).host],
+      alternateName: [...SITE_ALTERNATE_NAMES, new URL(SITE_URL).host],
       inLanguage: 'en-IN',
+      publisher: { '@id': absoluteUrl('/#organization') },
+    },
+    {
+      '@type': 'Organization',
+      '@id': absoluteUrl('/#organization'),
+      name: SITE_NAME,
+      alternateName: SITE_ALTERNATE_NAMES,
+      url: absoluteUrl('/'),
+      logo: { '@type': 'ImageObject', url: absoluteUrl('/icons/512.png'), width: 512, height: 512 },
+      description: SITE_DESCRIPTION,
+      sameAs: SITE_PROFILES,
     },
     {
       '@type': 'SoftwareApplication',
       '@id': absoluteUrl('/#app'),
       name: 'Lume',
-      alternateName: SITE_NAME,
+      alternateName: [SITE_NAME, ...SITE_ALTERNATE_NAMES.filter((n) => n !== 'Lume')],
       url: absoluteUrl('/'),
       description: SITE_DESCRIPTION,
+      publisher: { '@id': absoluteUrl('/#organization') },
       applicationCategory: 'EducationalApplication',
       operatingSystem: 'Android, iOS, Web',
       image: absoluteUrl('/icons/512.png'),
