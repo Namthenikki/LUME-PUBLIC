@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "android:release": "node scripts/build-android.mjs",
-    "extension:zip": "node scripts/build-extension.mjs"
+    "extension:zip": "node scripts/build-extension.mjs",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
