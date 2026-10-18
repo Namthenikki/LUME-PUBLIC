@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { GuideHeader } from '@/components/guides/GuidePage';
 import { JsonLd } from '@/components/JsonLd';
 import { SiteFooter } from '@/components/SiteFooter';
-import { absoluteUrl, GUIDES } from '@/lib/site';
+import { absoluteUrl, GUIDES, SITE_NAME } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Guides for MUJ LMS and NPTEL deadlines',
@@ -14,7 +14,7 @@ const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
   itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Lume', item: absoluteUrl('/') },
+    { '@type': 'ListItem', position: 1, name: SITE_NAME, item: absoluteUrl('/') },
     { '@type': 'ListItem', position: 2, name: 'Guides', item: absoluteUrl('/guides') },
   ],
 };

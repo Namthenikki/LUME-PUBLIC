@@ -8,3 +8,18 @@ export function LumeMark({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * The public pages' logo: the mark and "Lume for MUJ", the same name the site gives search engines, so
+ * Google shows it rather than the host's name.
+ */
+export function LumeWordmark() {
+  return (
+    <a href="/" className="flex min-h-11 items-center gap-2 text-[19px] font-semibold tracking-[-0.02em]">
+      <LumeMark className="size-6 text-ink" />
+      <span>
+        Lume <span className="font-medium text-ink-3">for MUJ</span>
+      </span>
+    </a>
+  );
+}

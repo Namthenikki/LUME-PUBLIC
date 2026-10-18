@@ -3,7 +3,7 @@ import { AndroidSteps, IphoneSteps } from '@/components/guides/AppGuides';
 import { ExtensionSteps } from '@/components/guides/ExtensionGuide';
 import { LmsLinkGuide } from '@/components/guides/LmsLinkGuide';
 import { Pill, Step, Steps } from '@/components/guides/Steps';
-import { LumeMark } from '@/components/LumeMark';
+import { LumeWordmark } from '@/components/LumeMark';
 import { SiteFooter } from '@/components/SiteFooter';
 import androidRelease from '@/lib/android-release.json';
 
@@ -44,10 +44,7 @@ export default function HelpPage() {
   return (
     <div className="dots min-h-dvh bg-panel pb-16">
       <header className="mx-auto flex max-w-[760px] items-center justify-between px-5 py-4">
-        <a href="/" className="flex min-h-11 items-center gap-2 text-[19px] font-semibold tracking-[-0.02em]">
-          <LumeMark className="size-6 text-ink" />
-          Lume
-        </a>
+        <LumeWordmark />
         <a href="/dashboard" className="flex h-11 items-center rounded-[12px] border border-line bg-white px-4 text-[14px] font-medium shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
           Open Lume
         </a>

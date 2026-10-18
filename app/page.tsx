@@ -5,7 +5,7 @@ import { Features } from '@/components/landing/Features';
 import { DeletedNotice } from '@/components/landing/DeletedNotice';
 import { Hero } from '@/components/landing/Hero';
 import { Questions, QUESTIONS } from '@/components/landing/Questions';
-import { LumeMark } from '@/components/LumeMark';
+import { LumeWordmark } from '@/components/LumeMark';
 import { SiteFooter } from '@/components/SiteFooter';
 import androidRelease from '@/lib/android-release.json';
 import { absoluteUrl, SITE_ALTERNATE_NAMES, SITE_DESCRIPTION, SITE_NAME, SITE_PROFILES, SITE_URL } from '@/lib/site';
@@ -83,10 +83,7 @@ export default function Landing() {
       <JsonLd data={STRUCTURED_DATA} />
       <DeletedNotice />
       <header className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4 sm:px-9">
-        <a href="/" className="flex min-h-11 items-center gap-2 text-[19px] font-semibold tracking-[-0.02em]">
-          <LumeMark className="size-6 text-ink" />
-          Lume
-        </a>
+        <LumeWordmark />
         <nav className="hidden gap-9 text-[14px] text-ink-2 md:flex">
           <a href="#dashboard" className="transition-colors hover:text-ink">
             Dashboard

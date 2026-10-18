@@ -1,5 +1,5 @@
 import { JsonLd } from '@/components/JsonLd';
-import { LumeMark } from '@/components/LumeMark';
+import { LumeWordmark } from '@/components/LumeMark';
 import { SiteFooter } from '@/components/SiteFooter';
 import { absoluteUrl, GUIDES, SITE_NAME, type Guide } from '@/lib/site';
 
@@ -7,10 +7,7 @@ import { absoluteUrl, GUIDES, SITE_NAME, type Guide } from '@/lib/site';
 export function GuideHeader() {
   return (
     <header className="mx-auto flex max-w-[760px] items-center justify-between px-5 py-4">
-      <a href="/" className="flex min-h-11 items-center gap-2 text-[19px] font-semibold tracking-[-0.02em]">
-        <LumeMark className="size-6 text-ink" />
-        Lume
-      </a>
+      <LumeWordmark />
       <a href="/dashboard" className="flex h-11 items-center rounded-[12px] border border-line bg-white px-4 text-[14px] font-medium shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
         Open Lume
       </a>
@@ -73,7 +70,7 @@ export function GuidePage({ guide, lead, children }: { guide: Guide; lead: React
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Lume', item: absoluteUrl('/') },
+          { '@type': 'ListItem', position: 1, name: SITE_NAME, item: absoluteUrl('/') },
           { '@type': 'ListItem', position: 2, name: 'Guides', item: absoluteUrl('/guides') },
           { '@type': 'ListItem', position: 3, name: guide.title, item: url },
         ],

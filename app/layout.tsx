@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: SITE_TITLE, template: '%s · Lume' },
   description: SITE_DESCRIPTION,
-  applicationName: 'Lume',
+  applicationName: SITE_NAME,
   // Pages inherit this whole object (Next merges metadata shallowly), so they never set their own:
   // og:title and og:description follow each page's title and description, and og:image is app/opengraph-image.
   openGraph: { type: 'website', siteName: SITE_NAME, locale: 'en_IN' },
