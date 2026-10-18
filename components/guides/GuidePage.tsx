@@ -106,7 +106,8 @@ export function GuidePage({ guide, lead, children }: { guide: Guide; lead: React
 
         {children}
 
-        <section className="rounded-[22px] bg-ink p-6 text-white shadow-card sm:p-8">
+        {/* data-nosnippet: search results quote the guide (or its description), not this pitch or the links below */}
+        <section data-nosnippet className="rounded-[22px] bg-ink p-6 text-white shadow-card sm:p-8">
           <h2 className="text-[21px] font-semibold tracking-[-0.02em]">A reminder before every deadline</h2>
           <p className="mt-1.5 max-w-[50ch] text-[15px] leading-relaxed text-white/70">
             Lume finds every assignment and quiz on your MUJ LMS, and NPTEL too, and reminds you until each one is done. Free, with no account.
@@ -114,14 +115,14 @@ export function GuidePage({ guide, lead, children }: { guide: Guide; lead: React
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
             <a href="/start" className="flex h-11 items-center justify-center rounded-[12px] bg-blue px-5 text-[14px] font-semibold text-white">
               Connect your LMS
-            </a>
+            </a>{' '}
             <a href="/help" className="flex h-11 items-center justify-center rounded-[12px] bg-white/10 px-5 text-[14px] font-medium text-white">
               How to set up
             </a>
           </div>
         </section>
 
-        <nav aria-label="More guides" className="grid gap-2.5 pt-4 sm:grid-cols-2">
+        <nav data-nosnippet aria-label="More guides" className="grid gap-2.5 pt-4 sm:grid-cols-2">
           {others.map((g) => (
             <a key={g.slug} href={`/guides/${g.slug}`} className="rounded-[18px] bg-card p-4 shadow-card transition-transform active:scale-[0.98]">
               <p className="text-[12px] font-semibold text-blue">Guide</p>

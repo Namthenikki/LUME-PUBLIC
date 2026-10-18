@@ -16,7 +16,7 @@ const COLUMNS = [
 /** The public pages' footer: every guide one tap away, and what Lume is (and isn't). */
 export function SiteFooter({ className = '' }: { className?: string }) {
   return (
-    <footer className={`mx-auto text-[14px] text-ink-2 ${className}`}>
+    <footer data-nosnippet className={`mx-auto text-[14px] text-ink-2 ${className}`}>
       <div className="flex flex-col gap-7 border-t border-line pt-8 sm:flex-row sm:justify-between sm:gap-10">
         <div className="max-w-[40ch]">
           <span className="flex items-center gap-2 font-semibold text-ink">
